@@ -9,24 +9,53 @@
 - Add packages: `bun add <package>`
 - Dev server (with watch): `bun run dev`
 - Start server: `bun run start`
+- Type check: `bun run type-check`
 
 ### Tech Stack
 - Fastify 5
 - TypeScript
 - Bun runtime
+- Drizzle ORM with PostgreSQL
+- Zod for validation
 
 ### Server
 - Runs on port **3001**
 - CORS enabled for frontend communication
 
+### Database
+- PostgreSQL database: `agentoo`
+- Generate migrations: `bun run db:generate`
+- Run migrations: `bun run db:migrate`
+- Open Drizzle Studio: `bun run db:studio`
+
 ### Project Structure
 ```
 backend/
 ├── src/
-│   └── index.ts    # Main entry point
+│   ├── index.ts              # Main entry point
+│   ├── db/
+│   │   ├── index.ts          # Database connection
+│   │   ├── schema/           # Drizzle table schemas
+│   │   └── modules/          # Database operations by feature
+│   │       ├── user/
+│   │       ├── otp/
+│   │       └── session/
+│   ├── routes/               # API route handlers
+│   ├── services/             # Business logic
+│   ├── schemas/              # Zod validation schemas
+│   └── utils/                # Utility functions
+├── drizzle/                  # Migration files
+├── drizzle.config.ts
 ├── package.json
-└── bun.lock
+└── .env
 ```
+
+### Architecture Rules
+- ALL database operations MUST be in `src/db/modules/<module>/*.db.ts`
+- Services contain business logic and call db modules
+- Routes handle HTTP request/response only
+- Validation schemas in `src/schemas/`
 
 ### Environment
 - Bun automatically loads `.env` files - no dotenv needed
+- Required env vars: DATABASE_URL, JWT_SECRET, SMTP_*, GOOGLE_AUTH_*

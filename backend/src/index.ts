@@ -1,33 +1,54 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import cookie from '@fastify/cookie'
+import { authRoutes } from './routes/auth.routes'
 
 const fastify = Fastify({
   logger: true,
-});
+})
 
-// Register CORS
+/**
+ * Register plugins
+ */
 await fastify.register(cors, {
-  origin: true,
-});
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+})
 
-// Health check route
-fastify.get("/health", async () => {
-  return { status: "ok" };
-});
+await fastify.register(cookie, {
+  secret: process.env.JWT_SECRET,
+})
 
-// Root route
-fastify.get("/", async () => {
-  return { message: "Fastify backend is running" };
-});
+/**
+ * Register routes
+ */
+await fastify.register(authRoutes)
 
-// Start server
+/**
+ * Health check route
+ */
+fastify.get('/health', async () => {
+  return { status: 'ok' }
+})
+
+/**
+ * Root route
+ */
+fastify.get('/', async () => {
+  return { message: 'Agentoo API is running' }
+})
+
+/**
+ * Start server
+ */
 const start = async () => {
   try {
-    await fastify.listen({ port: 3001, host: "0.0.0.0" });
+    const port = parseInt(process.env.PORT || '3001')
+    await fastify.listen({ port, host: '0.0.0.0' })
   } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
+    fastify.log.error(err)
+    process.exit(1)
   }
-};
+}
 
-start();
+start()

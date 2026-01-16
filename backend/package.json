@@ -5,16 +5,30 @@
   "private": true,
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "type-check": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^7.0.5",
+    "drizzle-kit": "^0.31.8"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
-    "fastify": "^5.7.1"
+    "@fastify/jwt": "^10.0.0",
+    "drizzle-orm": "^0.45.1",
+    "fastify": "^5.7.1",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^7.0.12",
+    "postgres": "^3.4.8",
+    "zod": "^4.3.5"
   }
 }

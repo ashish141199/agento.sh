@@ -1,0 +1,6 @@
+- [ ] I need timestamp-based migrations in Drizzle. 
+- [ ] great, now the B setup is done, the PostgreSQL is done, the Dresel is done, and the authentication is also done. 
+
+Now ideally what I want to take care of is the agents table. So let us create an agents database in the back end. This agents database will have a name, a description, then a system prompt. Orange of system prompts is just called instructions and then an instruction config, basically this is the one which will have the four questions. The instructions config will be a JSON which will have the answers to the four questions, which we will then utilize to compute and create this system prompt and that is the actual instructions you. We also need the model that will be a text field, so basically the model used that can be auto or any of the open router models, then we need. 
+
+- [ ] we need to make sure that all the buttons and all the clickable components are clickable when allowed to be clickable. When it is disabled, then it is okay, cursor pointer not available is okay, but when it is clickable and not disabled, it should have cursor pointer ideally. 
