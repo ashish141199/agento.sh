@@ -12,8 +12,10 @@ So I need an app bar on the left, the name of the product will be written, and o
 
 - [x] we need to make sure that all the buttons and all the clickable components are clickable when allowed to be clickable. When it is disabled, then it is okay, cursor pointer not available is okay, but when it is clickable and not disabled, it should have cursor pointer ideally. 
 
+- [x] Use fonts: DM Sans
 
-- [ ] I think we should create a separate model for AI models, or let's call it LLM models. And then have them linked to the agents. I think that is the correct approach. So each model will have a name and the model ID and then that will be linked to agents. Once you do create this, create 3 to 4 models. The first one would be auto. The id would be openrouter/auto. When we display it in the main page, I want the name to display it, not the model id. And in fact, there will be a different postgresql query view id for this, right?
+
+- [x] I think we should create a separate model for AI models, or let's call it LLM models. And then have them linked to the agents. I think that is the correct approach. So each model will have a name and the model ID and then that will be linked to agents. Once you do create this, create 3 to 4 models. The first one would be auto. The id would be openrouter/auto. When we display it in the main page, I want the name to display it, not the model id. And in fact, there will be a different postgresql query view id for this, right?
 
 Then create openai/gpt4o anthropic/claude-3.5-sonnet google/gemini-3.0-flash like that. The open router style I will be using, open router for this also. Once this is done in the backend, do install Vercel AI SDK, the latest version. Use context 7 MCP to see if there are any issues or you want to clarify from the documentation directly. And then I also do want to configure open router provider for the Vercel SDK. Write no code yet for this, specifically, we will deal with this later. 
 

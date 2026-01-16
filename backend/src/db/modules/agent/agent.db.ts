@@ -1,11 +1,45 @@
 import { eq, desc, asc, ilike, or, and } from 'drizzle-orm'
 import { db } from '../../index'
-import { agents, models, type Agent, type InsertAgent, type Model } from '../../schema'
+import { agents, models, type Agent, type InsertAgent, type Model, type InstructionsConfig } from '../../schema'
 
 /**
  * Agent with model details
  */
-export type AgentWithModel = Agent & { model: Model }
+export type AgentWithModel = Agent & { model: Model | null }
+
+/**
+ * Generate system prompt from agent details
+ */
+export function generateSystemPrompt(
+  name: string,
+  description: string | null | undefined,
+  instructionsConfig: InstructionsConfig | null | undefined
+): string {
+  const parts: string[] = []
+
+  parts.push(`You are ${name}.`)
+
+  if (description) {
+    parts.push(description)
+  }
+
+  if (instructionsConfig) {
+    if (instructionsConfig.whatDoesAgentDo) {
+      parts.push(`\n## Your Purpose\n${instructionsConfig.whatDoesAgentDo}`)
+    }
+    if (instructionsConfig.howShouldItSpeak) {
+      parts.push(`\n## Communication Style\n${instructionsConfig.howShouldItSpeak}`)
+    }
+    if (instructionsConfig.whatShouldItNeverDo) {
+      parts.push(`\n## Restrictions\nYou must never:\n${instructionsConfig.whatShouldItNeverDo}`)
+    }
+    if (instructionsConfig.anythingElse) {
+      parts.push(`\n## Additional Context\n${instructionsConfig.anythingElse}`)
+    }
+  }
+
+  return parts.join('\n')
+}
 
 /**
  * Find agent by ID
@@ -34,6 +68,8 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
       name: agents.name,
       description: agents.description,
       modelId: agents.modelId,
+      instructionsConfig: agents.instructionsConfig,
+      systemPrompt: agents.systemPrompt,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
       model: {
@@ -45,10 +81,16 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
       },
     })
     .from(agents)
-    .innerJoin(models, eq(agents.modelId, models.id))
+    .leftJoin(models, eq(agents.modelId, models.id))
     .where(eq(agents.id, id))
     .limit(1)
-  return result[0] as AgentWithModel | undefined
+
+  if (!result[0]) return undefined
+
+  return {
+    ...result[0],
+    model: result[0].model?.id ? result[0].model as Model : null,
+  } as AgentWithModel
 }
 
 /**
@@ -95,6 +137,8 @@ export async function findAgentsByUserId(
       name: agents.name,
       description: agents.description,
       modelId: agents.modelId,
+      instructionsConfig: agents.instructionsConfig,
+      systemPrompt: agents.systemPrompt,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
       model: {
@@ -106,11 +150,14 @@ export async function findAgentsByUserId(
       },
     })
     .from(agents)
-    .innerJoin(models, eq(agents.modelId, models.id))
+    .leftJoin(models, eq(agents.modelId, models.id))
     .where(and(...conditions))
     .orderBy(orderFn(sortColumn))
 
-  return result as AgentWithModel[]
+  return result.map(row => ({
+    ...row,
+    model: row.model?.id ? row.model as Model : null,
+  })) as AgentWithModel[]
 }
 
 /**

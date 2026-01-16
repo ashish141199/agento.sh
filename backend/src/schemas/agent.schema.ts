@@ -1,12 +1,22 @@
 import { z } from 'zod'
 
 /**
+ * Instructions config schema
+ */
+export const instructionsConfigSchema = z.object({
+  whatDoesAgentDo: z.string().max(2000, 'Answer too long').default(''),
+  howShouldItSpeak: z.string().max(2000, 'Answer too long').default(''),
+  whatShouldItNeverDo: z.string().max(2000, 'Answer too long').default(''),
+  anythingElse: z.string().max(2000, 'Answer too long').default(''),
+})
+
+/**
  * Schema for creating an agent
  */
 export const createAgentSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   description: z.string().max(500, 'Description too long').optional(),
-  modelId: z.string().uuid('Invalid model ID'),
+  modelId: z.string().uuid('Invalid model ID').optional(),
 })
 
 /**
@@ -15,7 +25,8 @@ export const createAgentSchema = z.object({
 export const updateAgentSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
   description: z.string().max(500, 'Description too long').optional(),
-  modelId: z.string().uuid('Invalid model ID').optional(),
+  modelId: z.string().uuid('Invalid model ID').optional().nullable(),
+  instructionsConfig: instructionsConfigSchema.optional(),
 })
 
 /**
@@ -32,4 +43,5 @@ export const listAgentsSchema = z.object({
  */
 export type CreateAgentInput = z.infer<typeof createAgentSchema>
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>
+export type InstructionsConfig = z.infer<typeof instructionsConfigSchema>
 export type ListAgentsInput = z.infer<typeof listAgentsSchema>

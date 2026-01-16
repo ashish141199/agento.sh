@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/stores/auth.store'
+import { Logo } from '@/components/logo'
 
 type Step = 'email' | 'otp' | 'name'
 
@@ -124,7 +125,7 @@ export default function GetStartedPage() {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Agentoo</CardTitle>
+          <Logo />
           <CardDescription>
             {step === 'email' && 'Enter your email to get started'}
             {step === 'otp' && 'Enter the code sent to your email'}

@@ -12,6 +12,16 @@ export interface Model {
 }
 
 /**
+ * Instructions config type
+ */
+export interface InstructionsConfig {
+  whatDoesAgentDo: string
+  howShouldItSpeak: string
+  whatShouldItNeverDo: string
+  anythingElse: string
+}
+
+/**
  * Agent type
  */
 export interface Agent {
@@ -19,8 +29,10 @@ export interface Agent {
   userId: string
   name: string
   description: string | null
-  modelId: string
-  model: Model
+  modelId: string | null
+  model: Model | null
+  instructionsConfig: InstructionsConfig | null
+  systemPrompt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -31,7 +43,17 @@ export interface Agent {
 export interface CreateAgentInput {
   name: string
   description?: string
-  modelId: string
+  modelId?: string
+}
+
+/**
+ * Update agent input
+ */
+export interface UpdateAgentInput {
+  name?: string
+  description?: string
+  modelId?: string | null
+  instructionsConfig?: InstructionsConfig
 }
 
 /**
@@ -83,7 +105,7 @@ export const agentService = {
    * @param data - Agent data
    * @param token - Access token
    */
-  update: (id: string, data: Partial<CreateAgentInput>, token: string) =>
+  update: (id: string, data: UpdateAgentInput, token: string) =>
     api.patch<{ agent: Agent }>(`/agents/${id}`, data, token),
 
   /**

@@ -3,10 +3,12 @@ import { verifyAccessToken } from '../services/auth.service'
 import {
   findAgentsByUserId,
   findAgentById,
+  findAgentByIdWithModel,
   createAgent,
   updateAgent,
   deleteAgent,
   agentBelongsToUser,
+  generateSystemPrompt,
 } from '../db/modules/agent/agent.db'
 import {
   createAgentSchema,
@@ -81,7 +83,7 @@ export async function agentRoutes(fastify: FastifyInstance): Promise<void> {
 
     const { id } = request.params as { id: string }
 
-    const agent = await findAgentById(id)
+    const agent = await findAgentByIdWithModel(id)
 
     if (!agent) {
       return reply.status(404).send({
@@ -172,12 +174,27 @@ export async function agentRoutes(fastify: FastifyInstance): Promise<void> {
       })
     }
 
-    const agent = await updateAgent(id, result.data)
+    // If instructionsConfig is provided, regenerate the system prompt
+    const updateData: Record<string, unknown> = { ...result.data }
+    if (result.data.instructionsConfig || result.data.name || result.data.description !== undefined) {
+      const existingAgent = await findAgentById(id)
+      if (existingAgent) {
+        const name = result.data.name || existingAgent.name
+        const description = result.data.description !== undefined ? result.data.description : existingAgent.description
+        const instructionsConfig = result.data.instructionsConfig || existingAgent.instructionsConfig
+        updateData.systemPrompt = generateSystemPrompt(name, description, instructionsConfig)
+      }
+    }
+
+    const agent = await updateAgent(id, updateData)
+
+    // Return agent with model details
+    const agentWithModel = await findAgentByIdWithModel(id)
 
     return reply.send({
       success: true,
       message: 'Agent updated',
-      data: { agent },
+      data: { agent: agentWithModel || agent },
     })
   })
 

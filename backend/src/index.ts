@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import cookie from '@fastify/cookie'
 import { authRoutes } from './routes/auth.routes'
 import { agentRoutes } from './routes/agents.routes'
+import { modelRoutes } from './routes/models.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -14,6 +15,7 @@ const fastify = Fastify({
 await fastify.register(cors, {
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 })
 
 await fastify.register(cookie, {
@@ -25,6 +27,7 @@ await fastify.register(cookie, {
  */
 await fastify.register(authRoutes)
 await fastify.register(agentRoutes)
+await fastify.register(modelRoutes)
 
 /**
  * Health check route
