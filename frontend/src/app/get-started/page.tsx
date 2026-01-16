@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,11 +12,21 @@ import { useAuthStore } from '@/stores/auth.store'
 type Step = 'email' | 'otp' | 'name'
 
 /**
+ * Error messages for URL error codes
+ */
+const errorMessages: Record<string, string> = {
+  google_auth_failed: 'Google authentication failed. Please try again.',
+  no_code: 'Authentication failed. Please try again.',
+  auth_failed: 'Authentication failed. Please try again.',
+}
+
+/**
  * Get Started page component
  * Handles login and signup flow
  */
 export default function GetStartedPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setAuth, setUser } = useAuthStore()
 
   const [step, setStep] = useState<Step>('email')

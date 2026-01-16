@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import cookie from '@fastify/cookie'
 import { authRoutes } from './routes/auth.routes'
+import { agentRoutes } from './routes/agents.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -23,6 +24,7 @@ await fastify.register(cookie, {
  * Register routes
  */
 await fastify.register(authRoutes)
+await fastify.register(agentRoutes)
 
 /**
  * Health check route

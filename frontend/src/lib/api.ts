@@ -75,6 +75,16 @@ export const api = {
     }),
 
   /**
+   * PATCH request
+   */
+  patch: <T>(endpoint: string, body?: unknown, token?: string) =>
+    apiFetch<T>(endpoint, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }),
+
+  /**
    * DELETE request
    */
   delete: <T>(endpoint: string, token?: string) =>

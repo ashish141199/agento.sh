@@ -40,7 +40,7 @@ interface GoogleUserInfoResponse {
 export function getGoogleAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: `${FRONTEND_URL}/api/auth/google/callback`,
+    redirect_uri: `${FRONTEND_URL}/auth/google/callback`,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
@@ -63,7 +63,7 @@ export async function exchangeCodeForTokens(code: string): Promise<string> {
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: `${FRONTEND_URL}/api/auth/google/callback`,
+      redirect_uri: `${FRONTEND_URL}/auth/google/callback`,
       grant_type: 'authorization_code',
     }),
   })

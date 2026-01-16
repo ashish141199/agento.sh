@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 /**
  * Public routes that don't require authentication
  */
-const publicRoutes = ['/get-started', '/auth/callback', '/api/auth']
+const publicRoutes = ['/get-started', '/auth/callback', '/auth/google']
 
 /**
  * Middleware to handle authentication

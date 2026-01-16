@@ -28,22 +28,33 @@ bunx shadcn@latest add <component>
 ```
 frontend/src/
 ├── app/
-│   ├── layout.tsx            # Root layout
-│   ├── page.tsx              # Home page (protected)
-│   ├── get-started/          # Login/Signup page
-│   ├── auth/callback/        # OAuth callback
-│   └── api/auth/google/      # Google OAuth route
+│   ├── layout.tsx              # Root layout
+│   ├── globals.css             # Global styles
+│   ├── (protected)/            # Protected route group
+│   │   ├── layout.tsx          # App bar with avatar menu
+│   │   └── page.tsx            # Home page (agents table)
+│   ├── get-started/            # Login/Signup page (public)
+│   └── auth/                   # Auth routes (public)
+│       ├── callback/           # OAuth callback page
+│       └── google/callback/    # Google OAuth handler
 ├── components/
-│   ├── ui/                   # shadcn/ui components
-│   └── providers/            # React providers
-├── services/                 # API service functions
-├── stores/                   # Zustand stores
-├── hooks/                    # Custom React hooks
-└── lib/                      # Utilities
+│   ├── ui/                     # shadcn/ui components
+│   ├── providers/              # React providers
+│   └── agents/                 # Agent-related components
+├── services/                   # API service functions
+├── stores/                     # Zustand stores
+├── hooks/                      # Custom React hooks
+└── lib/                        # Utilities
 ```
 
+### Route Groups
+- `(protected)` - Routes requiring authentication
+  - Has app bar layout with logo and avatar menu
+  - Uses `useAuthGuard` hook for protection
+- Public routes - `get-started`, `auth/*`
+
 ### Authentication Flow
-- `/` - Protected main page (redirects to /get-started if not authenticated)
+- `/` - Protected home page (agents table)
 - `/get-started` - Combined login/signup page
 - Email + OTP authentication
 - Google OAuth sign-in
