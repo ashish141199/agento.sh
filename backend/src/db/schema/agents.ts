@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { users } from './users'
+import { models } from './models'
 
 /**
  * Agents table schema
@@ -20,8 +21,10 @@ export const agents = pgTable('agents', {
   /** Agent description */
   description: text('description'),
 
-  /** Model to use (default: auto) */
-  model: text('model').notNull().default('auto'),
+  /** Model UUID reference */
+  modelId: text('model_id')
+    .notNull()
+    .references(() => models.id),
 
   /** Timestamp when agent was created */
   createdAt: timestamp('created_at').notNull().defaultNow(),

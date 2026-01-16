@@ -1,6 +1,17 @@
 import { api } from '@/lib/api'
 
 /**
+ * Model type
+ */
+export interface Model {
+  id: string
+  modelId: string
+  name: string
+  provider: string
+  createdAt: string
+}
+
+/**
  * Agent type
  */
 export interface Agent {
@@ -8,7 +19,8 @@ export interface Agent {
   userId: string
   name: string
   description: string | null
-  model: string
+  modelId: string
+  model: Model
   createdAt: string
   updatedAt: string
 }
@@ -19,7 +31,7 @@ export interface Agent {
 export interface CreateAgentInput {
   name: string
   description?: string
-  model?: string
+  modelId: string
 }
 
 /**

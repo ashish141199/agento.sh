@@ -128,7 +128,7 @@ export function AgentsTable() {
                   <TableCell className="text-neutral-600 truncate max-w-[400px]">
                     {agent.description || '-'}
                   </TableCell>
-                  <TableCell className="text-neutral-600">{agent.model}</TableCell>
+                  <TableCell className="text-neutral-600">{agent.model.name}</TableCell>
                   <TableCell className="text-neutral-600">{formatDate(agent.createdAt)}</TableCell>
                 </TableRow>
               ))

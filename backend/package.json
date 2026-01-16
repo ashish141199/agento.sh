@@ -21,9 +21,11 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.12",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
+    "ai": "^6.0.39",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.7.1",
     "jsonwebtoken": "^9.0.3",

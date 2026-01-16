@@ -1,6 +1,11 @@
 import { eq, desc, asc, ilike, or, and } from 'drizzle-orm'
 import { db } from '../../index'
-import { agents, type Agent, type InsertAgent } from '../../schema'
+import { agents, models, type Agent, type InsertAgent, type Model } from '../../schema'
+
+/**
+ * Agent with model details
+ */
+export type AgentWithModel = Agent & { model: Model }
 
 /**
  * Find agent by ID
@@ -17,10 +22,41 @@ export async function findAgentById(id: string): Promise<Agent | undefined> {
 }
 
 /**
+ * Find agent by ID with model details
+ * @param id - The agent ID
+ * @returns The agent with model details or undefined
+ */
+export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel | undefined> {
+  const result = await db
+    .select({
+      id: agents.id,
+      userId: agents.userId,
+      name: agents.name,
+      description: agents.description,
+      modelId: agents.modelId,
+      createdAt: agents.createdAt,
+      updatedAt: agents.updatedAt,
+      model: {
+        id: models.id,
+        modelId: models.modelId,
+        name: models.name,
+        provider: models.provider,
+        createdAt: models.createdAt,
+      },
+    })
+    .from(agents)
+    .innerJoin(models, eq(agents.modelId, models.id))
+    .where(eq(agents.id, id))
+    .limit(1)
+  return result[0] as AgentWithModel | undefined
+}
+
+/**
  * Find all agents for a user with optional search and sort
+ * Includes model details for each agent
  * @param userId - The user ID
  * @param options - Search and sort options
- * @returns List of agents
+ * @returns List of agents with model details
  */
 export async function findAgentsByUserId(
   userId: string,
@@ -29,7 +65,7 @@ export async function findAgentsByUserId(
     sortBy?: 'name' | 'createdAt' | 'updatedAt'
     sortOrder?: 'asc' | 'desc'
   }
-): Promise<Agent[]> {
+): Promise<AgentWithModel[]> {
   const { search, sortBy = 'createdAt', sortOrder = 'desc' } = options || {}
 
   const conditions = [eq(agents.userId, userId)]
@@ -52,11 +88,29 @@ export async function findAgentsByUserId(
 
   const orderFn = sortOrder === 'asc' ? asc : desc
 
-  return db
-    .select()
+  const result = await db
+    .select({
+      id: agents.id,
+      userId: agents.userId,
+      name: agents.name,
+      description: agents.description,
+      modelId: agents.modelId,
+      createdAt: agents.createdAt,
+      updatedAt: agents.updatedAt,
+      model: {
+        id: models.id,
+        modelId: models.modelId,
+        name: models.name,
+        provider: models.provider,
+        createdAt: models.createdAt,
+      },
+    })
     .from(agents)
+    .innerJoin(models, eq(agents.modelId, models.id))
     .where(and(...conditions))
     .orderBy(orderFn(sortColumn))
+
+  return result as AgentWithModel[]
 }
 
 /**

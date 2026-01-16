@@ -6,4 +6,5 @@
 export * from './users'
 export * from './otp-codes'
 export * from './sessions'
+export * from './models'
 export * from './agents'
