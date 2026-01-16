@@ -4,6 +4,7 @@ import cookie from '@fastify/cookie'
 import { authRoutes } from './routes/auth.routes'
 import { agentRoutes } from './routes/agents.routes'
 import { modelRoutes } from './routes/models.routes'
+import { chatRoutes } from './routes/chat.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -28,6 +29,7 @@ await fastify.register(cookie, {
 await fastify.register(authRoutes)
 await fastify.register(agentRoutes)
 await fastify.register(modelRoutes)
+await fastify.register(chatRoutes)
 
 /**
  * Health check route

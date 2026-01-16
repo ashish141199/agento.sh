@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore, type User } from '@/stores/auth.store'
 import { Button } from '@/components/ui/button'
@@ -10,13 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { authService } from '@/services/auth.service'
 
 /**
- * Auth callback page
- * Handles OAuth callback and completes signup if needed
+ * Auth callback content component
  */
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { setAuth, setUser } = useAuthStore()
+  const { setAuth } = useAuthStore()
 
   const [needsName, setNeedsName] = useState(false)
   const [fullName, setFullName] = useState('')
@@ -112,5 +111,21 @@ export default function AuthCallbackPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/**
+ * Auth callback page
+ * Handles OAuth callback and completes signup if needed
+ */
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-neutral-500">Loading...</p>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }

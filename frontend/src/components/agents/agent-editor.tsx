@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentGeneralForm } from './agent-general-form'
 import { AgentInstructionsForm } from './agent-instructions-form'
 import { AgentToolsPlaceholder } from './agent-tools-placeholder'
-import { AgentChatPlaceholder } from './agent-chat-placeholder'
+import { AgentChat } from './agent-chat'
 import { agentService, type Agent, type InstructionsConfig } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
@@ -202,7 +202,7 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
 
       {/* Right side - Chat (50%) */}
       <div className="w-1/2">
-        <AgentChatPlaceholder />
+        <AgentChat agentId={agentId} name={name} description={description} />
       </div>
     </div>
   )
