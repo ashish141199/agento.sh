@@ -7,7 +7,7 @@
 ```
 agento.sh/
 ├── frontend/       # Next.js 16 app (port 3000)
-├── backend/        # Fastify 5 server (port 3001)
+├── backend/        # Fastify 5 server (port 8000)
 └── CLAUDE.md
 ```
 
@@ -23,4 +23,4 @@ Runs on http://localhost:3000
 ```bash
 cd backend && bun run dev
 ```
-Runs on http://localhost:3001
+Runs on http://localhost:8000

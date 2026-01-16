@@ -19,7 +19,7 @@
 - Zod for validation
 
 ### Server
-- Runs on port **3001**
+- Runs on port **8000**
 - CORS enabled for frontend communication
 
 ### Database

@@ -43,7 +43,7 @@ fastify.get('/', async () => {
  */
 const start = async () => {
   try {
-    const port = parseInt(process.env.PORT || '3001')
+    const port = parseInt(process.env.PORT || '8000')
     await fastify.listen({ port, host: '0.0.0.0' })
   } catch (err) {
     fastify.log.error(err)
