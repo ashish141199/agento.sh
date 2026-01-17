@@ -22,7 +22,7 @@ import { sendOtpEmail, generateOtpCode } from '../utils/email'
 import type { User } from '../db/schema'
 
 const JWT_SECRET = process.env.JWT_SECRET!
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d'
 
 /**
  * Token payload structure
@@ -191,7 +191,7 @@ export async function refreshAccessToken(
     const accessToken = jwt.sign(
       { userId: payload.userId, email: payload.email },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '1h' }
     )
 
     return { accessToken, refreshToken }
@@ -231,10 +231,10 @@ async function generateTokens(
 ): Promise<AuthTokens> {
   const payload: TokenPayload = { userId: user.id, email: user.email }
 
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' } as SignOptions)
+  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' } as SignOptions)
   const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as SignOptions)
 
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
 
   await createSession({
     userId: user.id,

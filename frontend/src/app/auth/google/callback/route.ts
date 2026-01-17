@@ -37,7 +37,15 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set('user', JSON.stringify(data.data.user))
     redirectUrl.searchParams.set('isNewUser', data.data.isNewUser.toString())
 
-    return NextResponse.redirect(redirectUrl)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+
+    // Forward the refresh token cookie from the backend to the browser
+    const setCookieHeader = response.headers.get('set-cookie')
+    if (setCookieHeader) {
+      redirectResponse.headers.set('set-cookie', setCookieHeader)
+    }
+
+    return redirectResponse
   } catch {
     return NextResponse.redirect(new URL('/get-started?error=auth_failed', request.url))
   }

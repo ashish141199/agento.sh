@@ -90,7 +90,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     })
 
     return reply.send({
@@ -150,7 +150,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 7 * 24 * 60 * 60,
+        maxAge: 30 * 24 * 60 * 60,
       })
 
       return reply.send({
@@ -249,7 +249,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const tokens = await refreshAccessToken(refreshToken)
 
     if (!tokens) {
-      reply.clearCookie('refreshToken')
+      reply.clearCookie('refreshToken', { path: '/' })
       return reply.status(401).send({
         success: false,
         message: 'Invalid refresh token',
@@ -320,7 +320,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       await logout(refreshToken)
     }
 
-    reply.clearCookie('refreshToken')
+    reply.clearCookie('refreshToken', { path: '/' })
 
     return reply.send({
       success: true,
