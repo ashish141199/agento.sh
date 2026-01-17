@@ -27,7 +27,8 @@ interface ToolCardProps {
 export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault()
     onRemove()
     setShowDeleteDialog(false)
   }

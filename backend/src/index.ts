@@ -12,6 +12,19 @@ const fastify = Fastify({
 })
 
 /**
+ * Allow empty JSON bodies
+ * By default, Fastify rejects requests with Content-Type: application/json but empty body
+ */
+fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+  try {
+    const json = body ? JSON.parse(body as string) : {}
+    done(null, json)
+  } catch (err) {
+    done(err as Error, undefined)
+  }
+})
+
+/**
  * Register plugins
  */
 await fastify.register(cors, {

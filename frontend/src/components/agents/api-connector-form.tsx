@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -53,20 +53,38 @@ export function ApiConnectorForm({
   tool,
   isSaving = false,
 }: ApiConnectorFormProps) {
-  const [name, setName] = useState(tool?.name || '')
-  const [description, setDescription] = useState(tool?.description || '')
-  const [method, setMethod] = useState<HttpMethod>(tool?.config?.method || 'GET')
-  const [url, setUrl] = useState(tool?.config?.url || '')
-  const [headers, setHeaders] = useState<Header[]>(tool?.config?.headers || [])
-  const [body, setBody] = useState(tool?.config?.body || '')
-  const [authType, setAuthType] = useState<AuthType>(tool?.config?.authentication?.type || 'none')
-  const [authToken, setAuthToken] = useState(tool?.config?.authentication?.token || '')
-  const [authApiKey, setAuthApiKey] = useState(tool?.config?.authentication?.apiKey || '')
-  const [authUsername, setAuthUsername] = useState(tool?.config?.authentication?.username || '')
-  const [authPassword, setAuthPassword] = useState(tool?.config?.authentication?.password || '')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [method, setMethod] = useState<HttpMethod>('GET')
+  const [url, setUrl] = useState('')
+  const [headers, setHeaders] = useState<Header[]>([])
+  const [body, setBody] = useState('')
+  const [authType, setAuthType] = useState<AuthType>('none')
+  const [authToken, setAuthToken] = useState('')
+  const [authApiKey, setAuthApiKey] = useState('')
+  const [authUsername, setAuthUsername] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const isEditing = !!tool
+
+  // Reset form when tool changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      setName(tool?.name || '')
+      setDescription(tool?.description || '')
+      setMethod(tool?.config?.method || 'GET')
+      setUrl(tool?.config?.url || '')
+      setHeaders(tool?.config?.headers || [])
+      setBody(tool?.config?.body || '')
+      setAuthType(tool?.config?.authentication?.type || 'none')
+      setAuthToken(tool?.config?.authentication?.token || '')
+      setAuthApiKey(tool?.config?.authentication?.apiKey || '')
+      setAuthUsername(tool?.config?.authentication?.username || '')
+      setAuthPassword(tool?.config?.authentication?.password || '')
+      setAdvancedOpen(false)
+    }
+  }, [open, tool])
 
   const handleAddHeader = () => {
     setHeaders([...headers, { key: '', value: '' }])
@@ -107,24 +125,20 @@ export function ApiConnectorForm({
       description: description.trim() || undefined,
       config,
     })
+  }
 
-    // Reset form if creating new
-    if (!isEditing) {
-      setName('')
-      setDescription('')
-      setMethod('GET')
-      setUrl('')
-      setHeaders([])
-      setBody('')
-      setAuthType('none')
-      setAuthToken('')
-      setAuthApiKey('')
-      setAuthUsername('')
-      setAuthPassword('')
+  const isValidUrl = (urlString: string): boolean => {
+    if (!urlString.trim()) return false
+    try {
+      new URL(urlString)
+      return true
+    } catch {
+      return false
     }
   }
 
-  const isValid = name.trim() && url.trim()
+  const urlError = url.trim() && !isValidUrl(url) ? 'Please enter a valid URL' : ''
+  const isValid = name.trim() && isValidUrl(url)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,7 +200,11 @@ export function ApiConnectorForm({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isSaving}
+                className={urlError ? 'border-red-500 focus-visible:ring-red-500' : ''}
               />
+              {urlError && (
+                <p className="text-xs text-red-500">{urlError}</p>
+              )}
             </div>
           </div>
 
