@@ -176,11 +176,11 @@ export function ApiConnectorForm({
           </div>
 
           {/* Method and URL */}
-          <div className="grid grid-cols-[120px_1fr] gap-3">
+          <div className="grid grid-cols-[100px_1fr] gap-2">
             <div className="space-y-2">
               <Label>Method *</Label>
               <Select value={method} onValueChange={(v) => setMethod(v as HttpMethod)} disabled={isSaving}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -207,6 +207,23 @@ export function ApiConnectorForm({
               )}
             </div>
           </div>
+
+          {/* Request Body - only for non-GET methods */}
+          {method !== 'GET' && (
+            <div className="space-y-2">
+              <Label htmlFor="tool-body">Request Body</Label>
+              <Textarea
+                id="tool-body"
+                placeholder='{"city": "{{city}}"}'
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                disabled={isSaving}
+                rows={3}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-neutral-500">JSON body to send with the request</p>
+            </div>
+          )}
 
           {/* Advanced Options */}
           <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
@@ -258,20 +275,6 @@ export function ApiConnectorForm({
                     Add Header
                   </Button>
                 </div>
-              </div>
-
-              {/* Request Body */}
-              <div className="space-y-2">
-                <Label htmlFor="tool-body">Request Body</Label>
-                <Textarea
-                  id="tool-body"
-                  placeholder='{"city": "{{city}}"}'
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  disabled={isSaving}
-                  rows={3}
-                  className="font-mono text-sm"
-                />
               </div>
 
               {/* Authentication */}

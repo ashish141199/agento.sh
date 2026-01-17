@@ -201,7 +201,7 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
       </div>
 
       {/* Right side - Chat (50%) */}
-      <div className="w-1/2">
+      <div className="w-1/2 h-full min-h-0">
         <AgentChat agentId={agentId} name={name} description={description} />
       </div>
     </div>

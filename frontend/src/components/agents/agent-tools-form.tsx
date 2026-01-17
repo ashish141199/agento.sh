@@ -8,6 +8,7 @@ import { ApiConnectorForm } from './api-connector-form'
 import { ToolCard } from './tool-card'
 import { toolService, type Tool, type ToolWithAssignment, type ApiConnectorConfig } from '@/services/tool.service'
 import { useAuthStore } from '@/stores/auth.store'
+import { notification } from '@/lib/notifications'
 import { Wrench, Plus, Loader2 } from 'lucide-react'
 
 interface AgentToolsFormProps {
@@ -62,6 +63,10 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
       setShowApiForm(false)
+      notification.success('Tool created successfully')
+    },
+    onError: () => {
+      notification.error('Failed to create tool')
     },
   })
 
@@ -78,6 +83,10 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
       queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
       setShowApiForm(false)
       setEditingTool(null)
+      notification.success('Tool updated successfully')
+    },
+    onError: () => {
+      notification.error('Failed to update tool')
     },
   })
 
@@ -91,6 +100,10 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
+      notification.success('Tool removed successfully')
+    },
+    onError: () => {
+      notification.error('Failed to remove tool')
     },
   })
 

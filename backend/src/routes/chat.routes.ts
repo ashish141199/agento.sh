@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { streamText, convertToModelMessages, type UIMessage } from 'ai'
+import { streamText, convertToModelMessages, tool, type UIMessage, type ToolSet, stepCountIs } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { z } from 'zod'
 import { verifyAccessToken } from '../services/auth.service'
 import { findAgentByIdWithModel, agentBelongsToUser } from '../db/modules/agent/agent.db'
 import {
@@ -8,6 +9,8 @@ import {
   createMessage,
   deleteMessagesByAgentId,
 } from '../db/modules/message/message.db'
+import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
+import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
 
 /**
  * Extract user ID from authorization header
@@ -21,6 +24,132 @@ function getUserId(request: FastifyRequest): string | null {
   const token = authHeader.substring(7)
   const payload = verifyAccessToken(token)
   return payload?.userId || null
+}
+
+/**
+ * Build authentication headers for API connector
+ * @param auth - Authentication configuration
+ * @returns Headers object
+ */
+function buildAuthHeaders(auth?: ApiConnectorAuth): Record<string, string> {
+  if (!auth || auth.type === 'none') return {}
+
+  switch (auth.type) {
+    case 'bearer':
+      return auth.token ? { Authorization: `Bearer ${auth.token}` } : {}
+    case 'api_key':
+      return auth.apiKey ? { 'X-API-Key': auth.apiKey } : {}
+    case 'basic':
+      if (auth.username && auth.password) {
+        const credentials = Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
+        return { Authorization: `Basic ${credentials}` }
+      }
+      return {}
+    default:
+      return {}
+  }
+}
+
+/**
+ * Execute an API connector tool
+ * @param config - API connector configuration
+ * @param body - Optional body override from tool call
+ * @returns API response
+ */
+async function executeApiConnector(
+  config: ApiConnectorConfig,
+  body?: string
+): Promise<{ status: number; data: unknown }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...buildAuthHeaders(config.authentication),
+  }
+
+  // Add custom headers
+  if (config.headers) {
+    for (const header of config.headers) {
+      headers[header.key] = header.value
+    }
+  }
+
+  const fetchOptions: RequestInit = {
+    method: config.method,
+    headers,
+  }
+
+  // Add body for methods that support it
+  if (['POST', 'PUT', 'PATCH'].includes(config.method)) {
+    fetchOptions.body = body || config.body || undefined
+  }
+
+  const response = await fetch(config.url, fetchOptions)
+
+  let data: unknown
+  const contentType = response.headers.get('content-type')
+  if (contentType?.includes('application/json')) {
+    data = await response.json()
+  } else {
+    data = await response.text()
+  }
+
+  return { status: response.status, data }
+}
+
+/**
+ * Sanitize tool name to match OpenAI's pattern: ^[a-zA-Z0-9_\.-]+
+ * Replaces spaces with underscores and removes invalid characters
+ */
+function sanitizeToolName(name: string): string {
+  return name
+    .replace(/\s+/g, '_')           // Replace spaces with underscores
+    .replace(/[^a-zA-Z0-9_.-]/g, '') // Remove invalid characters
+    .replace(/^[^a-zA-Z]+/, '')      // Ensure starts with a letter
+    || 'tool'                        // Fallback if empty
+}
+
+/**
+ * Create a single AI SDK tool from a database tool config
+ */
+function createApiConnectorTool(config: ApiConnectorConfig, description: string) {
+  return tool({
+    description,
+    inputSchema: z.object({
+      body: z.string().optional().describe('Optional JSON body to send with the request'),
+    }),
+    execute: async ({ body }: { body?: string }) => {
+      try {
+        const result = await executeApiConnector(config, body)
+        return result
+      } catch (error) {
+        return {
+          status: 500,
+          data: { error: error instanceof Error ? error.message : 'Unknown error' },
+        }
+      }
+    },
+  })
+}
+
+/**
+ * Build AI SDK tools from database tools
+ * @param dbTools - Tools from database
+ * @returns AI SDK ToolSet for streamText
+ */
+function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
+  const aiTools: ToolSet = {}
+
+  for (const dbTool of dbTools) {
+    // Skip disabled tools
+    if (!dbTool.enabled || dbTool.agentEnabled === false) continue
+
+    const config = dbTool.config as ApiConnectorConfig
+    const description = dbTool.description || `API call to ${config.url}`
+    const toolName = sanitizeToolName(dbTool.name)
+
+    aiTools[toolName] = createApiConnectorTool(config, description)
+  }
+
+  return aiTools
 }
 
 /**
@@ -99,6 +228,10 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
     // Get the model ID from agent's model, default to openrouter/auto
     const modelId = agent.model?.modelId || 'openrouter/auto'
 
+    // Get the agent's tools
+    const dbTools = await findToolsByAgentId(agentId)
+    const agentTools = buildAiSdkTools(dbTools)
+
     // Save the user's message to database
     const lastUserMessage = messages[messages.length - 1]
     if (lastUserMessage && lastUserMessage.role === 'user') {
@@ -122,6 +255,8 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
       model: openrouter.chat(modelId),
       system: agent.systemPrompt || `You are ${agent.name}.`,
       messages: await convertToModelMessages(messages),
+      stopWhen: stepCountIs(25),
+      tools: Object.keys(agentTools).length > 0 ? agentTools : undefined,
       onFinish: async ({ text }) => {
         // Save the agent's response to database
         if (text) {

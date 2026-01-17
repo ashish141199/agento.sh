@@ -12,6 +12,10 @@ Also one very important thing to remember: each message is to be saved. Whatever
     - [x] Delete tool is not working
     - [x] Edit tool is not working - dialog is opening but I don't see any of the values of that particular tool come inside the form. 
     - [ ] The tools that we are creating is not really going to the agent. So when I create a tool and when I save it, and when I speak with the chat agent on the right, when I ask you to call that particular tool, it says that it is not able to find that tool, basically meaning that that tool is not accessible. You'll have to check agent.service.ts file. 
-    - [ ] I don't think request body is something that needs to be in advanced options. I think it can be outside of advanced options, just below the URL and method fields, but probably it can be only enabled for all other methods which are not GET. Maybe. 
-    - [ ] The width of the method drop-down can be increased because there seems a bit of significant gap between the method drop-down and the URL text field. 
+    - [x] I don't think request body is something that needs to be in advanced options. I think it can be outside of advanced options, just below the URL and method fields, but probably it can be only enabled for all other methods which are not GET. Maybe. 
+    - [x] The width of the method drop-down can be increased because there seems a bit of significant gap between the method drop-down and the URL text field. 
     - [ ]   I want to understand how interpolation is working in terms of the request body placeholder which you have mentioned. How is the interpolation working exactly and have we implemented that? 
+
+
+Misc
+- [ ] Dropdown background needs to be white / consistent with text fields

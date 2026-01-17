@@ -34,7 +34,7 @@ export default function EditAgentPage({ params }: EditAgentPageProps) {
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         <AgentEditor agent={agent} isLoading={isLoading} />
       </div>
     </div>
