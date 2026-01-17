@@ -18,8 +18,8 @@ export default function CreateAgentPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Create Agent</h1>
-          <p className="text-neutral-600 mt-1">Configure your new AI agent</p>
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Create Agent</h1>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">Configure your new AI agent</p>
         </div>
       </div>
 

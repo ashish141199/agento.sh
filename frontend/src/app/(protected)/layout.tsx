@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { LogOut } from 'lucide-react'
 import { Logo } from '@/components/logo'
+import { ModeToggle } from '@/components/mode-toggle'
 
 /**
  * Protected layout component
@@ -58,16 +59,18 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-50">
-      <header className="h-14 border-b bg-white flex items-center justify-between px-6 shrink-0">
+    <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
+      <header className="h-14 border-b bg-white dark:bg-neutral-900 flex items-center justify-between px-6 shrink-0">
         <Logo asLink />
 
-        <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <ModeToggle />
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="focus:outline-none">
               <Avatar className="h-8 w-8 cursor-pointer">
                 <AvatarImage src={user?.imageUrl || undefined} alt={user?.fullName || 'User'} />
-                <AvatarFallback className="bg-neutral-200 text-neutral-700 text-sm">
+                <AvatarFallback className="bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-sm">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
@@ -80,6 +83,7 @@ export default function ProtectedLayout({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </header>
 
       <main className="flex-1 p-6 overflow-hidden">{children}</main>

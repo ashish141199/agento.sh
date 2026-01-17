@@ -27,7 +27,7 @@ export function AgentInstructionsForm({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-1">
       <div className="space-y-2">
         <Label htmlFor="whatDoesAgentDo">What does this agent do?</Label>
         <Textarea
@@ -38,7 +38,7 @@ export function AgentInstructionsForm({
           disabled={disabled}
           rows={3}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Describe the main purpose and capabilities of your agent
         </p>
       </div>
@@ -53,7 +53,7 @@ export function AgentInstructionsForm({
           disabled={disabled}
           rows={3}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Define the tone, style, and personality of your agent
         </p>
       </div>
@@ -68,7 +68,7 @@ export function AgentInstructionsForm({
           disabled={disabled}
           rows={3}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Set boundaries and restrictions for your agent
         </p>
       </div>
@@ -83,7 +83,7 @@ export function AgentInstructionsForm({
           disabled={disabled}
           rows={3}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Any other context or instructions for your agent
         </p>
       </div>

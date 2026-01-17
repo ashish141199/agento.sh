@@ -27,10 +27,10 @@ export default function EditAgentPage({ params }: EditAgentPageProps) {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
             {isLoading ? 'Loading...' : agent?.name || 'Edit Agent'}
           </h1>
-          <p className="text-neutral-600 mt-1">Configure your AI agent</p>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">Configure your AI agent</p>
         </div>
       </div>
 

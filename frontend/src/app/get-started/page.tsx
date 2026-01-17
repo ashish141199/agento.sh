@@ -112,7 +112,7 @@ export default function GetStartedPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <Logo />
@@ -124,7 +124,7 @@ export default function GetStartedPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-md">
+            <div className="mb-4 p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 rounded-md">
               {error}
             </div>
           )}
@@ -153,7 +153,7 @@ export default function GetStartedPage() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-neutral-500">or</span>
+                  <span className="bg-white dark:bg-neutral-900 px-2 text-neutral-500 dark:text-neutral-400">or</span>
                 </div>
               </div>
 
@@ -199,7 +199,7 @@ export default function GetStartedPage() {
                   maxLength={6}
                   required
                 />
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
                   Sent to {email}
                 </p>
               </div>

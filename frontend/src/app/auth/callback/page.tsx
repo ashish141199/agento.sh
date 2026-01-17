@@ -73,13 +73,13 @@ function AuthCallbackContent() {
   if (!needsName) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-neutral-500">Completing sign in...</p>
+        <p className="text-neutral-500 dark:text-neutral-400">Completing sign in...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Agentoo</CardTitle>
@@ -87,7 +87,7 @@ function AuthCallbackContent() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-md">
+            <div className="mb-4 p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 rounded-md">
               {error}
             </div>
           )}
@@ -122,7 +122,7 @@ export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-neutral-500">Loading...</p>
+        <p className="text-neutral-500 dark:text-neutral-400">Loading...</p>
       </div>
     }>
       <AuthCallbackContent />

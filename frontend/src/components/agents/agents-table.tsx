@@ -69,7 +69,7 @@ export function AgentsTable() {
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <button
       onClick={() => handleSort(field)}
-      className="flex items-center gap-1 hover:text-neutral-900"
+      className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-neutral-100"
     >
       {children}
       <ArrowUpDown className="h-4 w-4" />
@@ -79,7 +79,7 @@ export function AgentsTable() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-neutral-500">Loading agents...</p>
+        <p className="text-neutral-500 dark:text-neutral-400">Loading agents...</p>
       </div>
     )
   }
@@ -87,7 +87,7 @@ export function AgentsTable() {
   return (
     <div className="space-y-4">
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 dark:text-neutral-500" />
         <Input
           placeholder="Search agents..."
           value={search}
@@ -96,7 +96,7 @@ export function AgentsTable() {
         />
       </div>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white dark:bg-neutral-900">
         <Table>
           <TableHeader>
             <TableRow>
@@ -113,7 +113,7 @@ export function AgentsTable() {
           <TableBody>
             {agents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-neutral-500">
+                <TableCell colSpan={4} className="text-center py-12 text-neutral-500 dark:text-neutral-400">
                   {search ? 'No agents found' : 'No agents yet. Create your first agent!'}
                 </TableCell>
               </TableRow>
@@ -122,14 +122,14 @@ export function AgentsTable() {
                 <TableRow
                   key={agent.id}
                   onClick={() => handleRowClick(agent)}
-                  className="cursor-pointer hover:bg-neutral-50"
+                  className="cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800"
                 >
                   <TableCell className="font-medium">{agent.name}</TableCell>
-                  <TableCell className="text-neutral-600 truncate max-w-[400px]">
+                  <TableCell className="text-neutral-600 dark:text-neutral-400 truncate max-w-[400px]">
                     {agent.description || '-'}
                   </TableCell>
-                  <TableCell className="text-neutral-600">{agent.model?.name || '-'}</TableCell>
-                  <TableCell className="text-neutral-600">{formatDate(agent.createdAt)}</TableCell>
+                  <TableCell className="text-neutral-600 dark:text-neutral-400">{agent.model?.name || '-'}</TableCell>
+                  <TableCell className="text-neutral-600 dark:text-neutral-400">{formatDate(agent.createdAt)}</TableCell>
                 </TableRow>
               ))
             )}

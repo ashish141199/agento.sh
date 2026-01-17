@@ -39,7 +39,7 @@ export function AgentGeneralForm({
   const { data: models = [], isLoading: isLoadingModels } = useModels()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-1">
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <Input
@@ -49,7 +49,7 @@ export function AgentGeneralForm({
           onChange={(e) => onNameChange(e.target.value)}
           disabled={disabled}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Give your agent a memorable name
         </p>
       </div>
@@ -64,7 +64,7 @@ export function AgentGeneralForm({
           disabled={disabled}
           rows={3}
         />
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Briefly describe what your agent does
         </p>
       </div>
@@ -87,7 +87,7 @@ export function AgentGeneralForm({
             ))}
           </SelectContent>
         </Select>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Choose the AI model that powers your agent
         </p>
       </div>

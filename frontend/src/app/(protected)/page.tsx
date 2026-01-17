@@ -13,8 +13,8 @@ export default function HomePage() {
     <div className="max-w-6xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Agents</h1>
-          <p className="text-neutral-600 mt-1">Manage your AI agents</p>
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Agents</h1>
+          <p className="text-neutral-600 dark:text-neutral-400 mt-1">Manage your AI agents</p>
         </div>
         <Link href="/agents/create">
           <Button>
