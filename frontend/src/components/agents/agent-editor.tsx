@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentGeneralForm } from './agent-general-form'
 import { AgentInstructionsForm } from './agent-instructions-form'
-import { AgentToolsPlaceholder } from './agent-tools-placeholder'
+import { AgentToolsForm } from './agent-tools-form'
 import { AgentChat } from './agent-chat'
 import { agentService, type Agent, type InstructionsConfig } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
@@ -165,7 +165,7 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
             </TabsContent>
 
             <TabsContent value="tools" className="mt-0 h-full">
-              <AgentToolsPlaceholder />
+              <AgentToolsForm agentId={agentId} disabled={isSaving} />
             </TabsContent>
           </div>
 

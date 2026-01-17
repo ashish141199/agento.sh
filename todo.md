@@ -8,4 +8,6 @@ So in the backend, what we will have is corresponding, we will have the /chat or
 Also one very important thing to remember: each message is to be saved. Whatever agent message will come, it will be under is_agent boolean field. And then we'll show a real-time stream happening in frontend in the chat thing. 
 
 - [x] Auto token refreshing
-- [ ] Have 
+- [ ] Tools
+    - [ ] Delete tool is not working
+    - [ ] Edit tool is not working - dialog is opening but 

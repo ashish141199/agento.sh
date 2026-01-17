@@ -5,6 +5,7 @@ import { authRoutes } from './routes/auth.routes'
 import { agentRoutes } from './routes/agents.routes'
 import { modelRoutes } from './routes/models.routes'
 import { chatRoutes } from './routes/chat.routes'
+import { toolRoutes } from './routes/tools.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -30,6 +31,7 @@ await fastify.register(authRoutes)
 await fastify.register(agentRoutes)
 await fastify.register(modelRoutes)
 await fastify.register(chatRoutes)
+await fastify.register(toolRoutes)
 
 /**
  * Health check route
