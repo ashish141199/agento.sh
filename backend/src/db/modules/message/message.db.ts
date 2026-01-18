@@ -1,4 +1,4 @@
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, count } from 'drizzle-orm'
 import { db } from '../../index'
 import { messages, type Message, type InsertMessage } from '../../schema'
 
@@ -13,6 +13,19 @@ export async function findMessagesByAgentId(agentId: string): Promise<Message[]>
     .from(messages)
     .where(eq(messages.agentId, agentId))
     .orderBy(asc(messages.createdAt))
+}
+
+/**
+ * Check if an agent has any messages
+ * @param agentId - The agent ID
+ * @returns True if agent has messages
+ */
+export async function hasMessages(agentId: string): Promise<boolean> {
+  const result = await db
+    .select({ count: count() })
+    .from(messages)
+    .where(eq(messages.agentId, agentId))
+  return (result[0]?.count ?? 0) > 0
 }
 
 /**

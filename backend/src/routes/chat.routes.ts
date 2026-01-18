@@ -8,9 +8,11 @@ import {
   findMessagesByAgentId,
   createMessage,
   deleteMessagesByAgentId,
+  hasMessages,
 } from '../db/modules/message/message.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
 import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
+import { DEFAULT_CONVERSATION_HISTORY_LIMIT, DEFAULT_MODEL_ID } from '../config/defaults'
 
 /**
  * Build authentication headers for API connector
@@ -79,6 +81,20 @@ async function executeApiConnector(
   }
 
   return { status: response.status, data }
+}
+
+/**
+ * Apply conversation history limit to messages
+ * Keeps the most recent N messages while preserving conversation context
+ * @param messages - All messages from the conversation
+ * @param limit - Maximum number of messages to include
+ * @returns Limited messages array
+ */
+function applyHistoryLimit(messages: UIMessage[], limit: number): UIMessage[] {
+  if (limit <= 0 || messages.length <= limit) {
+    return messages
+  }
+  return messages.slice(-limit)
 }
 
 /**
@@ -199,12 +215,29 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
       })
     }
 
-    // Get the model ID from agent's model, default to openrouter/auto
-    const modelId = agent.model?.modelId || 'openrouter/auto'
+    // Get the model ID from agent's model
+    const modelId = agent.model?.modelId || DEFAULT_MODEL_ID
 
     // Get the agent's tools
     const dbTools = await findToolsByAgentId(agentId)
     const agentTools = buildAiSdkTools(dbTools)
+
+    // Apply conversation history limit from agent settings
+    const historyLimit = agent.settings?.memory?.conversationHistoryLimit || DEFAULT_CONVERSATION_HISTORY_LIMIT
+    const limitedMessages = applyHistoryLimit(messages, historyLimit)
+
+    // Check if this is the first message in the conversation
+    const isFirstMessage = !(await hasMessages(agentId))
+
+    // If first message and agent has a welcome message, save it first
+    const welcomeMessage = agent.settings?.chat?.welcomeMessage
+    if (isFirstMessage && welcomeMessage) {
+      await createMessage({
+        agentId,
+        content: welcomeMessage,
+        isAgent: true,
+      })
+    }
 
     // Save the user's message to database
     const lastUserMessage = messages[messages.length - 1]
@@ -224,11 +257,11 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
     reply.raw.setHeader('Access-Control-Allow-Origin', origin)
     reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
 
-    // Stream the response
+    // Stream the response with history-limited messages
     const result = streamText({
       model: openrouter.chat(modelId),
       system: agent.systemPrompt || `You are ${agent.name}.`,
-      messages: await convertToModelMessages(messages),
+      messages: await convertToModelMessages(limitedMessages),
       stopWhen: stepCountIs(25),
       tools: Object.keys(agentTools).length > 0 ? agentTools : undefined,
       onFinish: async ({ text }) => {

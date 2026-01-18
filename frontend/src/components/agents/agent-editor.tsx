@@ -22,20 +22,19 @@ import { AgentChat } from './agent-chat'
 import { agentService, type Agent, type InstructionsConfig, type AgentSettings } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useModels } from '@/hooks/use-models'
+import {
+  DEFAULT_INSTRUCTIONS_CONFIG,
+  DEFAULT_CONVERSATION_HISTORY_LIMIT,
+  DEFAULT_CONVERSATION_HISTORY_LIMIT_STRING,
+  CONVERSATION_HISTORY_OPTIONS,
+  PRESET_HISTORY_LIMITS,
+} from '@/lib/defaults'
 import { ChevronLeft, ChevronRight, Loader2, Settings, X, ArrowLeft } from 'lucide-react'
 
 type TabValue = 'identity' | 'instructions' | 'tools'
 type SettingsTabValue = 'model' | 'memory' | 'chat'
 
 const TABS: TabValue[] = ['identity', 'instructions', 'tools']
-
-const CONVERSATION_HISTORY_OPTIONS = [
-  { value: '5', label: 'Last 5 messages' },
-  { value: '10', label: 'Last 10 messages' },
-  { value: '20', label: 'Last 20 messages' },
-  { value: '50', label: 'Last 50 messages' },
-  { value: 'custom', label: 'Custom' },
-]
 
 export interface PublishState {
   agentId: string | null
@@ -52,13 +51,6 @@ interface AgentEditorProps {
   onPublishStateChange?: (state: PublishState) => void
 }
 
-const DEFAULT_INSTRUCTIONS: InstructionsConfig = {
-  whatDoesAgentDo: '',
-  howShouldItSpeak: '',
-  whatShouldItNeverDo: '',
-  anythingElse: '',
-}
-
 /**
  * Agent editor component with tabs for General, Instructions, and Tools
  * Handles both creation and editing of agents
@@ -72,14 +64,14 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [modelId, setModelId] = useState<string | null>(null)
-  const [instructionsConfig, setInstructionsConfig] = useState<InstructionsConfig>(DEFAULT_INSTRUCTIONS)
+  const [instructionsConfig, setInstructionsConfig] = useState<InstructionsConfig>(DEFAULT_INSTRUCTIONS_CONFIG)
   const [hasCreated, setHasCreated] = useState(false)
   const [agentId, setAgentId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTabValue>('model')
 
   // Settings state
-  const [conversationHistoryLimit, setConversationHistoryLimit] = useState<string>('10')
+  const [conversationHistoryLimit, setConversationHistoryLimit] = useState<string>(DEFAULT_CONVERSATION_HISTORY_LIMIT_STRING)
   const [customHistoryLimit, setCustomHistoryLimit] = useState<string>('')
   const [welcomeMessage, setWelcomeMessage] = useState('')
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([])
@@ -102,13 +94,13 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
       setName(agent.name)
       setDescription(agent.description || '')
       setModelId(agent.modelId)
-      setInstructionsConfig(agent.instructionsConfig || DEFAULT_INSTRUCTIONS)
+      setInstructionsConfig(agent.instructionsConfig || DEFAULT_INSTRUCTIONS_CONFIG)
       setAgentId(agent.id)
       setHasCreated(true)
 
       // Load settings from agent.settings
-      const limit = agent.settings?.memory?.conversationHistoryLimit || 10
-      const isCustomLimit = ![5, 10, 20, 50].includes(limit)
+      const limit = agent.settings?.memory?.conversationHistoryLimit || DEFAULT_CONVERSATION_HISTORY_LIMIT
+      const isCustomLimit = !PRESET_HISTORY_LIMITS.includes(limit as typeof PRESET_HISTORY_LIMITS[number])
       const historyLimit = isCustomLimit ? 'custom' : limit.toString()
       const customLimit = isCustomLimit ? limit.toString() : ''
       const welcome = agent.settings?.chat?.welcomeMessage || ''
@@ -123,7 +115,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
         name: agent.name,
         description: agent.description || '',
         modelId: agent.modelId,
-        instructionsConfig: agent.instructionsConfig || DEFAULT_INSTRUCTIONS,
+        instructionsConfig: agent.instructionsConfig || DEFAULT_INSTRUCTIONS_CONFIG,
         conversationHistoryLimit: historyLimit,
         customHistoryLimit: customLimit,
         welcomeMessage: welcome,
@@ -273,7 +265,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   // Build settings object for API
   const buildSettings = (): AgentSettings => {
     const limit = conversationHistoryLimit === 'custom'
-      ? parseInt(customHistoryLimit) || 10
+      ? parseInt(customHistoryLimit) || DEFAULT_CONVERSATION_HISTORY_LIMIT
       : parseInt(conversationHistoryLimit)
 
     return {
@@ -526,7 +518,13 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
 
       {/* Right side - Chat (50%) */}
       <div className="w-1/2 h-full min-h-0">
-        <AgentChat agentId={agentId} name={name} description={description} />
+        <AgentChat
+          agentId={agentId}
+          name={name}
+          description={description}
+          welcomeMessage={welcomeMessage}
+          suggestedPrompts={suggestedPrompts}
+        />
       </div>
     </div>
   )

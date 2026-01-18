@@ -1,13 +1,24 @@
 import { z } from 'zod'
+import {
+  DEFAULT_INSTRUCTIONS_CONFIG,
+  DEFAULT_CONVERSATION_HISTORY_LIMIT,
+  DEFAULT_WELCOME_MESSAGE,
+  DEFAULT_SUGGESTED_PROMPTS,
+  MAX_CONVERSATION_HISTORY_LIMIT,
+  MAX_INSTRUCTIONS_LENGTH,
+  MAX_WELCOME_MESSAGE_LENGTH,
+  MAX_SUGGESTED_PROMPT_LENGTH,
+  MAX_SUGGESTED_PROMPTS_COUNT,
+} from '../config/defaults'
 
 /**
  * Instructions config schema
  */
 export const instructionsConfigSchema = z.object({
-  whatDoesAgentDo: z.string().max(2000, 'Answer too long').default(''),
-  howShouldItSpeak: z.string().max(2000, 'Answer too long').default(''),
-  whatShouldItNeverDo: z.string().max(2000, 'Answer too long').default(''),
-  anythingElse: z.string().max(2000, 'Answer too long').default(''),
+  whatDoesAgentDo: z.string().max(MAX_INSTRUCTIONS_LENGTH, 'Answer too long').default(DEFAULT_INSTRUCTIONS_CONFIG.whatDoesAgentDo),
+  howShouldItSpeak: z.string().max(MAX_INSTRUCTIONS_LENGTH, 'Answer too long').default(DEFAULT_INSTRUCTIONS_CONFIG.howShouldItSpeak),
+  whatShouldItNeverDo: z.string().max(MAX_INSTRUCTIONS_LENGTH, 'Answer too long').default(DEFAULT_INSTRUCTIONS_CONFIG.whatShouldItNeverDo),
+  anythingElse: z.string().max(MAX_INSTRUCTIONS_LENGTH, 'Answer too long').default(DEFAULT_INSTRUCTIONS_CONFIG.anythingElse),
 })
 
 /**
@@ -15,11 +26,11 @@ export const instructionsConfigSchema = z.object({
  */
 export const agentSettingsSchema = z.object({
   memory: z.object({
-    conversationHistoryLimit: z.number().min(1).max(100).default(10),
+    conversationHistoryLimit: z.number().min(1).max(MAX_CONVERSATION_HISTORY_LIMIT).default(DEFAULT_CONVERSATION_HISTORY_LIMIT),
   }),
   chat: z.object({
-    welcomeMessage: z.string().max(500, 'Welcome message too long').default(''),
-    suggestedPrompts: z.array(z.string().max(200, 'Prompt too long')).max(10).default([]),
+    welcomeMessage: z.string().max(MAX_WELCOME_MESSAGE_LENGTH, 'Welcome message too long').default(DEFAULT_WELCOME_MESSAGE),
+    suggestedPrompts: z.array(z.string().max(MAX_SUGGESTED_PROMPT_LENGTH, 'Prompt too long')).max(MAX_SUGGESTED_PROMPTS_COUNT).default(DEFAULT_SUGGESTED_PROMPTS),
   }),
 })
 

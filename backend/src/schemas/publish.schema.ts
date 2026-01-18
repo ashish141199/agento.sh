@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { DEFAULT_EMBED_POSITION, DEFAULT_EMBED_THEME } from '../config/defaults'
 
 /**
  * Embed config schema
  */
 export const embedConfigSchema = z.object({
-  position: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).default('bottom-right'),
-  theme: z.enum(['light', 'dark']).default('light'),
+  position: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).default(DEFAULT_EMBED_POSITION),
+  theme: z.enum(['light', 'dark']).default(DEFAULT_EMBED_THEME),
 })
 
 /**
