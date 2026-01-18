@@ -57,6 +57,35 @@ export interface UpdateAgentInput {
 }
 
 /**
+ * Embed config type
+ */
+export interface EmbedConfig {
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  theme: 'light' | 'dark'
+}
+
+/**
+ * Publish status response type
+ */
+export interface PublishStatus {
+  isPublished: boolean
+  hasChanges: boolean
+  slug: string | null
+  publishedAt: string | null
+  toolsCount: number
+  modelName: string | null
+  embedConfig: EmbedConfig
+}
+
+/**
+ * Publish response type
+ */
+export interface PublishResponse {
+  slug: string
+  publishedAt: string
+}
+
+/**
  * List agents options
  */
 export interface ListAgentsOptions {
@@ -115,4 +144,37 @@ export const agentService = {
    */
   delete: (id: string, token: string) =>
     api.delete<void>(`/agents/${id}`, token),
+
+  /**
+   * Get publish status for an agent
+   * @param id - Agent ID
+   * @param token - Access token
+   */
+  getPublishStatus: (id: string, token: string) =>
+    api.get<PublishStatus>(`/agents/${id}/publish-status`, token),
+
+  /**
+   * Publish an agent
+   * @param id - Agent ID
+   * @param token - Access token
+   */
+  publish: (id: string, token: string) =>
+    api.post<PublishResponse>(`/agents/${id}/publish`, undefined, token),
+
+  /**
+   * Unpublish an agent
+   * @param id - Agent ID
+   * @param token - Access token
+   */
+  unpublish: (id: string, token: string) =>
+    api.post<void>(`/agents/${id}/unpublish`, undefined, token),
+
+  /**
+   * Update embed config for an agent
+   * @param id - Agent ID
+   * @param config - Embed config
+   * @param token - Access token
+   */
+  updateEmbedConfig: (id: string, config: Partial<EmbedConfig>, token: string) =>
+    api.patch<{ embedConfig: EmbedConfig }>(`/agents/${id}/embed-config`, config, token),
 }

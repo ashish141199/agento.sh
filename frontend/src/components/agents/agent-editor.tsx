@@ -17,9 +17,19 @@ type TabValue = 'general' | 'instructions' | 'tools'
 
 const TABS: TabValue[] = ['general', 'instructions', 'tools']
 
+export interface PublishState {
+  agentId: string | null
+  agentName: string
+  hasUnsavedChanges: boolean
+  isFormComplete: boolean
+  onSave: () => Promise<void>
+  isSaving: boolean
+}
+
 interface AgentEditorProps {
   agent?: Agent | null
   isLoading?: boolean
+  onPublishStateChange?: (state: PublishState) => void
 }
 
 const DEFAULT_INSTRUCTIONS: InstructionsConfig = {
@@ -33,7 +43,7 @@ const DEFAULT_INSTRUCTIONS: InstructionsConfig = {
  * Agent editor component with tabs for General, Instructions, and Tools
  * Handles both creation and editing of agents
  */
-export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
+export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEditorProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -44,6 +54,12 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
   const [instructionsConfig, setInstructionsConfig] = useState<InstructionsConfig>(DEFAULT_INSTRUCTIONS)
   const [hasCreated, setHasCreated] = useState(false)
   const [agentId, setAgentId] = useState<string | null>(null)
+  const [savedState, setSavedState] = useState<{
+    name: string
+    description: string
+    modelId: string | null
+    instructionsConfig: InstructionsConfig
+  } | null>(null)
 
   // Initialize form with agent data when editing
   useEffect(() => {
@@ -54,8 +70,22 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
       setInstructionsConfig(agent.instructionsConfig || DEFAULT_INSTRUCTIONS)
       setAgentId(agent.id)
       setHasCreated(true)
+      setSavedState({
+        name: agent.name,
+        description: agent.description || '',
+        modelId: agent.modelId,
+        instructionsConfig: agent.instructionsConfig || DEFAULT_INSTRUCTIONS,
+      })
     }
   }, [agent])
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = hasCreated && savedState && (
+    name !== savedState.name ||
+    description !== savedState.description ||
+    modelId !== savedState.modelId ||
+    JSON.stringify(instructionsConfig) !== JSON.stringify(savedState.instructionsConfig)
+  )
 
   // Create agent mutation
   const createMutation = useMutation({
@@ -69,6 +99,12 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
       if (createdAgent) {
         setAgentId(createdAgent.id)
         setHasCreated(true)
+        setSavedState({
+          name,
+          description,
+          modelId,
+          instructionsConfig,
+        })
         queryClient.invalidateQueries({ queryKey: ['agents'] })
         // Update URL to the agent's ID
         router.replace(`/agents/${createdAgent.id}`)
@@ -91,8 +127,37 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] })
       queryClient.invalidateQueries({ queryKey: ['agent', agentId] })
+      queryClient.invalidateQueries({ queryKey: ['publish-status', agentId] })
+      // Update saved state after successful save
+      setSavedState({
+        name,
+        description,
+        modelId,
+        instructionsConfig,
+      })
     },
   })
+
+  const isSaving = createMutation.isPending || updateMutation.isPending
+
+  // Handle save for publish button
+  const handleSave = async () => {
+    if (hasCreated && agentId) {
+      await updateMutation.mutateAsync()
+    }
+  }
+
+  // Notify parent of publish state changes
+  useEffect(() => {
+    onPublishStateChange?.({
+      agentId,
+      agentName: name,
+      hasUnsavedChanges: !!hasUnsavedChanges,
+      isFormComplete: !!name.trim(),
+      onSave: handleSave,
+      isSaving,
+    })
+  }, [agentId, name, hasUnsavedChanges, isSaving, onPublishStateChange])
 
   const currentTabIndex = TABS.indexOf(activeTab)
   const isFirstTab = currentTabIndex === 0
@@ -122,7 +187,6 @@ export function AgentEditor({ agent, isLoading }: AgentEditorProps) {
   }
 
   const isNextDisabled = activeTab === 'general' && !name.trim()
-  const isSaving = createMutation.isPending || updateMutation.isPending
 
   if (isLoading) {
     return (

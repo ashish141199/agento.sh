@@ -23,4 +23,10 @@ Misc
 
 - [ ] all right, great. So the last part which I want for after everything is done, or you can just add a publish button or something on the top right in the same line as the title in the description for the agents page for the create or update agents page, whereupon clicking that button you can publish it. 
 
-Now publishing will mean basically there will be three types of publishing. One would be 
+- [ ] So the URL is not actually opening even locally, so that must be accessible and the same chat component that we have should also be over there as the full screen kind of thing. Also, that will be a publicly accessible URL but it can only be able to chat only when the user is logged in. That is one thing.
+
+Also, we need some redirect URL logic as well for that. Once the user comes there and then sends a message immediately, it's checked if the user is not authenticated, he's redirected to the login page. At that time, we need the redirect URL logic in the get parameter or something like that. 
+
+- [ ] also, I think for the position, the default position must be 'fit to parent' or something like that. Maybe some better words, maybe 'expanded' or something like that. 
+
+That will basically mean that in whichever container or parent you put it to, it will just do 100% width and 100% height. 

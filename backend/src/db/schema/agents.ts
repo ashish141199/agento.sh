@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { models } from './models'
 
@@ -10,6 +10,14 @@ export interface InstructionsConfig {
   howShouldItSpeak: string
   whatShouldItNeverDo: string
   anythingElse: string
+}
+
+/**
+ * Embed config JSON structure
+ */
+export interface EmbedConfig {
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  theme: 'light' | 'dark'
 }
 
 /**
@@ -46,6 +54,21 @@ export const agents = pgTable('agents', {
 
   /** Timestamp when agent was last updated */
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+
+  /** URL-friendly slug for public access */
+  slug: text('slug').unique(),
+
+  /** Whether the agent is published */
+  isPublished: boolean('is_published').notNull().default(false),
+
+  /** Timestamp when agent was published */
+  publishedAt: timestamp('published_at'),
+
+  /** Hash of the published config for change detection */
+  publishedConfigHash: text('published_config_hash'),
+
+  /** Embed widget configuration */
+  embedConfig: jsonb('embed_config').$type<EmbedConfig>(),
 })
 
 /**
