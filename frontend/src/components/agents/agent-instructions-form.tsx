@@ -2,6 +2,7 @@
 
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import type { InstructionsConfig } from '@/services/agent.service'
 
 interface AgentInstructionsFormProps {
@@ -86,6 +87,18 @@ export function AgentInstructionsForm({
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Any other context or instructions for your agent
         </p>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Label>Knowledge</Label>
+          <span className="text-xs text-neutral-400 dark:text-neutral-500">optional</span>
+        </div>
+        <div className="rounded-lg border border-dashed border-neutral-200 dark:border-neutral-800 p-6 text-center">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">Coming soon</p>
+        </div>
       </div>
     </div>
   )

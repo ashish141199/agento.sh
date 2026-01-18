@@ -70,6 +70,11 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
       modelId: agents.modelId,
       instructionsConfig: agents.instructionsConfig,
       systemPrompt: agents.systemPrompt,
+      slug: agents.slug,
+      isPublished: agents.isPublished,
+      publishedAt: agents.publishedAt,
+      publishedConfigHash: agents.publishedConfigHash,
+      embedConfig: agents.embedConfig,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
       model: {
@@ -139,6 +144,11 @@ export async function findAgentsByUserId(
       modelId: agents.modelId,
       instructionsConfig: agents.instructionsConfig,
       systemPrompt: agents.systemPrompt,
+      slug: agents.slug,
+      isPublished: agents.isPublished,
+      publishedAt: agents.publishedAt,
+      publishedConfigHash: agents.publishedConfigHash,
+      embedConfig: agents.embedConfig,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
       model: {

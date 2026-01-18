@@ -5,17 +5,38 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { AgentGeneralForm } from './agent-general-form'
 import { AgentInstructionsForm } from './agent-instructions-form'
 import { AgentToolsForm } from './agent-tools-form'
 import { AgentChat } from './agent-chat'
 import { agentService, type Agent, type InstructionsConfig } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { useModels } from '@/hooks/use-models'
+import { ChevronLeft, ChevronRight, Loader2, Settings } from 'lucide-react'
 
-type TabValue = 'general' | 'instructions' | 'tools'
+type TabValue = 'identity' | 'instructions' | 'tools'
+type SettingsTabValue = 'model' | 'memory' | 'chat'
 
-const TABS: TabValue[] = ['general', 'instructions', 'tools']
+const TABS: TabValue[] = ['identity', 'instructions', 'tools']
+
+const CONVERSATION_HISTORY_OPTIONS = [
+  { value: '5', label: 'Last 5 messages' },
+  { value: '10', label: 'Last 10 messages' },
+  { value: '20', label: 'Last 20 messages' },
+  { value: '50', label: 'Last 50 messages' },
+  { value: 'custom', label: 'Custom' },
+]
 
 export interface PublishState {
   agentId: string | null
@@ -46,14 +67,25 @@ const DEFAULT_INSTRUCTIONS: InstructionsConfig = {
 export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEditorProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { data: models = [], isLoading: isLoadingModels } = useModels()
 
-  const [activeTab, setActiveTab] = useState<TabValue>('general')
+  const [activeTab, setActiveTab] = useState<TabValue>('identity')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [modelId, setModelId] = useState<string | null>(null)
   const [instructionsConfig, setInstructionsConfig] = useState<InstructionsConfig>(DEFAULT_INSTRUCTIONS)
   const [hasCreated, setHasCreated] = useState(false)
   const [agentId, setAgentId] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<SettingsTabValue>('model')
+
+  // Settings state
+  const [conversationHistoryLimit, setConversationHistoryLimit] = useState<string>('10')
+  const [customHistoryLimit, setCustomHistoryLimit] = useState<string>('')
+  const [welcomeMessage, setWelcomeMessage] = useState('')
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([])
+  const [newPrompt, setNewPrompt] = useState('')
+
   const [savedState, setSavedState] = useState<{
     name: string
     description: string
@@ -170,8 +202,8 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   }
 
   const handleNext = async () => {
-    // On the General tab, clicking Next creates the agent if not created yet
-    if (activeTab === 'general' && !hasCreated) {
+    // On the Identity tab, clicking Next creates the agent if not created yet
+    if (activeTab === 'identity' && !hasCreated) {
       if (!name.trim()) return
       await createMutation.mutateAsync()
     }
@@ -186,7 +218,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
     }
   }
 
-  const isNextDisabled = activeTab === 'general' && !name.trim()
+  const isNextDisabled = activeTab === 'identity' && !name.trim()
 
   if (isLoading) {
     return (
@@ -201,21 +233,59 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
       {/* Left side - Configuration (50%) */}
       <div className="w-1/2 flex flex-col">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col">
-          <TabsList className="w-fit">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="instructions" disabled={!hasCreated}>Instructions</TabsTrigger>
-            <TabsTrigger value="tools" disabled={!hasCreated}>Tools</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList className="w-fit">
+              <TabsTrigger value="identity">Identity</TabsTrigger>
+              <TabsTrigger value="instructions" disabled={!hasCreated}>Instructions</TabsTrigger>
+              <TabsTrigger value="tools" disabled={!hasCreated}>Tools</TabsTrigger>
+            </TabsList>
+
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Agent Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-model">AI Model</Label>
+                    <Select
+                      value={modelId || ''}
+                      onValueChange={(value) => setModelId(value || null)}
+                      disabled={isSaving || isLoadingModels}
+                    >
+                      <SelectTrigger id="settings-model">
+                        <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                      Choose the AI model that powers your agent
+                    </p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
           <div className="flex-1 mt-6 overflow-auto">
-            <TabsContent value="general" className="mt-0 h-full">
+            <TabsContent value="identity" className="mt-0 h-full">
               <AgentGeneralForm
                 name={name}
                 description={description}
-                modelId={modelId}
                 onNameChange={setName}
                 onDescriptionChange={setDescription}
-                onModelIdChange={setModelId}
                 disabled={isSaving}
               />
             </TabsContent>

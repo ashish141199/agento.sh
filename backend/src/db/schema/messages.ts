@@ -1,5 +1,7 @@
 import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core'
 import { agents } from './agents'
+import { users } from './users'
+import { conversations } from './conversations'
 
 /**
  * Messages table schema
@@ -13,6 +15,14 @@ export const messages = pgTable('messages', {
   agentId: text('agent_id')
     .notNull()
     .references(() => agents.id, { onDelete: 'cascade' }),
+
+  /** Conversation this message belongs to (optional for backwards compatibility) */
+  conversationId: text('conversation_id')
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+
+  /** User who sent this message (null for agent messages) */
+  userId: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' }),
 
   /** Message content */
   content: text('content').notNull(),

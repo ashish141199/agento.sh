@@ -62,6 +62,7 @@ export default function PublicChatPage() {
     <div className="h-screen">
       <PublicChat
         agentId={agent.id}
+        agentSlug={slug}
         agentName={agent.name}
         agentDescription={agent.description}
       />
