@@ -31,6 +31,7 @@ interface EmbedModalProps {
 }
 
 const POSITION_OPTIONS = [
+  { value: 'fullscreen', label: 'Fullscreen' },
   { value: 'bottom-right', label: 'Bottom Right' },
   { value: 'bottom-left', label: 'Bottom Left' },
   { value: 'top-right', label: 'Top Right' },

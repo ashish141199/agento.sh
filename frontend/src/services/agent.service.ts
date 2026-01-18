@@ -75,7 +75,7 @@ export interface UpdateAgentInput {
  * Embed config type
  */
 export interface EmbedConfig {
-  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  position: 'fullscreen' | 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
   theme: 'light' | 'dark'
 }
 

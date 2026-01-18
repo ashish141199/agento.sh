@@ -42,7 +42,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
 /**
  * Default embed widget position
  */
-export const DEFAULT_EMBED_POSITION: EmbedConfig['position'] = 'bottom-right'
+export const DEFAULT_EMBED_POSITION: EmbedConfig['position'] = 'fullscreen'
 
 /**
  * Default embed widget theme

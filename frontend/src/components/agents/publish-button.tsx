@@ -236,7 +236,7 @@ export function PublishButton({
         open={showEmbed}
         onOpenChange={setShowEmbed}
         slug={status?.slug || ''}
-        embedConfig={status?.embedConfig || { position: 'bottom-right', theme: 'light' }}
+        embedConfig={status?.embedConfig || { position: 'fullscreen', theme: 'light' }}
         onConfigChange={handleEmbedConfigChange}
         onBack={handleBackFromEmbed}
       />
