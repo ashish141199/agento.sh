@@ -110,9 +110,10 @@ function sanitizeToolName(name: string): string {
 /**
  * Create a single AI SDK tool from a database tool config
  */
-function createApiConnectorTool(config: ApiConnectorConfig, description: string) {
+function createApiConnectorTool(config: ApiConnectorConfig, description: string, title: string) {
   return tool({
     description,
+    title,
     inputSchema: z.object({
       body: z.string().optional().describe('Optional JSON body to send with the request'),
     }),
@@ -145,8 +146,9 @@ function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
     const config = dbTool.config as ApiConnectorConfig
     const description = dbTool.description || `API call to ${config.url}`
     const toolName = sanitizeToolName(dbTool.name)
+    const title = dbTool.name // Original name for display
 
-    aiTools[toolName] = createApiConnectorTool(config, description)
+    aiTools[toolName] = createApiConnectorTool(config, description, title)
   }
 
   return aiTools

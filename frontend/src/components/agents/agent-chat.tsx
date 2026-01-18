@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
+import { refreshAccessToken, handleAuthFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { ToolCallCard, type ToolCallPart } from './tool-call-card'
 
 interface AgentChatProps {
   agentId: string | null
@@ -23,16 +25,54 @@ function AgentChatInner({ agentId, name, description }: { agentId: string; name:
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const accessToken = useAuthStore((state) => state.accessToken)
+
+  // Custom fetch that handles 401 errors with token refresh
+  const fetchWithAuth = useCallback(async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const currentToken = useAuthStore.getState().accessToken
+
+    // Merge headers properly - init.headers could be Headers object or plain object
+    const headers = new Headers(init?.headers)
+    headers.set('Authorization', `Bearer ${currentToken}`)
+
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      credentials: 'include',
+    })
+
+    console.log('[Chat] Response status:', response.status)
+
+    // Handle 401 by refreshing token and retrying
+    if (response.status === 401) {
+      console.log('[Chat] Got 401, attempting token refresh...')
+      const newToken = await refreshAccessToken()
+
+      if (newToken) {
+        console.log('[Chat] Token refreshed, retrying request...')
+        const retryHeaders = new Headers(init?.headers)
+        retryHeaders.set('Authorization', `Bearer ${newToken}`)
+
+        return fetch(url, {
+          ...init,
+          headers: retryHeaders,
+          credentials: 'include',
+        })
+      } else {
+        console.log('[Chat] Token refresh failed, redirecting to login...')
+        handleAuthFailure()
+        throw new Error('Session expired. Please log in again.')
+      }
+    }
+
+    return response
+  }, [])
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: `http://localhost:8000/agents/${agentId}/chat`,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      fetch: fetchWithAuth,
     })
-  }, [agentId, accessToken])
+  }, [agentId, fetchWithAuth])
 
   const { messages, sendMessage, status } = useChat({
     id: `agent-chat-${agentId}`,
@@ -91,6 +131,7 @@ function AgentChatInner({ agentId, name, description }: { agentId: string; name:
                 )}
               >
                 {message.parts?.map((part, index) => {
+                  // Handle text parts
                   if (part.type === 'text') {
                     return message.role === 'user' ? (
                       <p key={index} className="text-sm whitespace-pre-wrap">
@@ -100,6 +141,19 @@ function AgentChatInner({ agentId, name, description }: { agentId: string; name:
                       <div key={index} className="text-sm prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-pre:my-2 prose-pre:bg-neutral-800 dark:prose-pre:bg-neutral-900 [&_pre_code]:bg-transparent [&_pre_code]:text-neutral-100 [&_pre_code]:p-0 dark:[&_pre_code]:bg-transparent prose-code:bg-neutral-200 dark:prose-code:bg-neutral-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
                         <ReactMarkdown>{part.text}</ReactMarkdown>
                       </div>
+                    )
+                  }
+                  // Handle tool call parts (dynamic-tool or tool-*)
+                  if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
+                    const toolPart = part as unknown as ToolCallPart
+                    return (
+                      <ToolCallCard
+                        key={index}
+                        part={{
+                          ...toolPart,
+                          toolName: toolPart.toolName || part.type.replace('tool-', ''),
+                        }}
+                      />
                     )
                   }
                   return null

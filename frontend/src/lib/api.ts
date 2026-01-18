@@ -21,7 +21,7 @@ let refreshPromise: Promise<string | null> | null = null
  * Attempt to refresh the access token
  * @returns New access token or null if refresh failed
  */
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   // If already refreshing, wait for that to complete
   if (isRefreshing && refreshPromise) {
     return refreshPromise
@@ -65,7 +65,7 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Clear auth state and redirect to login
  */
-function handleAuthFailure(): void {
+export function handleAuthFailure(): void {
   // Clear auth store
   useAuthStore.getState().clearAuth()
 
