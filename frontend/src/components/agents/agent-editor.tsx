@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -20,10 +19,10 @@ import { AgentGeneralForm } from './agent-general-form'
 import { AgentInstructionsForm } from './agent-instructions-form'
 import { AgentToolsForm } from './agent-tools-form'
 import { AgentChat } from './agent-chat'
-import { agentService, type Agent, type InstructionsConfig } from '@/services/agent.service'
+import { agentService, type Agent, type InstructionsConfig, type AgentSettings } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { useModels } from '@/hooks/use-models'
-import { ChevronLeft, ChevronRight, Loader2, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Settings, X, ArrowLeft } from 'lucide-react'
 
 type TabValue = 'identity' | 'instructions' | 'tools'
 type SettingsTabValue = 'model' | 'memory' | 'chat'
@@ -91,6 +90,10 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
     description: string
     modelId: string | null
     instructionsConfig: InstructionsConfig
+    conversationHistoryLimit: string
+    customHistoryLimit: string
+    welcomeMessage: string
+    suggestedPrompts: string[]
   } | null>(null)
 
   // Initialize form with agent data when editing
@@ -102,11 +105,29 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
       setInstructionsConfig(agent.instructionsConfig || DEFAULT_INSTRUCTIONS)
       setAgentId(agent.id)
       setHasCreated(true)
+
+      // Load settings from agent.settings
+      const limit = agent.settings?.memory?.conversationHistoryLimit || 10
+      const isCustomLimit = ![5, 10, 20, 50].includes(limit)
+      const historyLimit = isCustomLimit ? 'custom' : limit.toString()
+      const customLimit = isCustomLimit ? limit.toString() : ''
+      const welcome = agent.settings?.chat?.welcomeMessage || ''
+      const prompts = agent.settings?.chat?.suggestedPrompts || []
+
+      setConversationHistoryLimit(historyLimit)
+      setCustomHistoryLimit(customLimit)
+      setWelcomeMessage(welcome)
+      setSuggestedPrompts(prompts)
+
       setSavedState({
         name: agent.name,
         description: agent.description || '',
         modelId: agent.modelId,
         instructionsConfig: agent.instructionsConfig || DEFAULT_INSTRUCTIONS,
+        conversationHistoryLimit: historyLimit,
+        customHistoryLimit: customLimit,
+        welcomeMessage: welcome,
+        suggestedPrompts: prompts,
       })
     }
   }, [agent])
@@ -116,7 +137,11 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
     name !== savedState.name ||
     description !== savedState.description ||
     modelId !== savedState.modelId ||
-    JSON.stringify(instructionsConfig) !== JSON.stringify(savedState.instructionsConfig)
+    JSON.stringify(instructionsConfig) !== JSON.stringify(savedState.instructionsConfig) ||
+    conversationHistoryLimit !== savedState.conversationHistoryLimit ||
+    customHistoryLimit !== savedState.customHistoryLimit ||
+    welcomeMessage !== savedState.welcomeMessage ||
+    JSON.stringify(suggestedPrompts) !== JSON.stringify(savedState.suggestedPrompts)
   )
 
   // Create agent mutation
@@ -136,6 +161,10 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
           description,
           modelId,
           instructionsConfig,
+          conversationHistoryLimit,
+          customHistoryLimit,
+          welcomeMessage,
+          suggestedPrompts,
         })
         queryClient.invalidateQueries({ queryKey: ['agents'] })
         // Update URL to the agent's ID
@@ -154,6 +183,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
         description: description || undefined,
         modelId,
         instructionsConfig,
+        settings: buildSettings(),
       }, token)
     },
     onSuccess: () => {
@@ -166,6 +196,10 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
         description,
         modelId,
         instructionsConfig,
+        conversationHistoryLimit,
+        customHistoryLimit,
+        welcomeMessage,
+        suggestedPrompts,
       })
     },
   })
@@ -220,6 +254,39 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
 
   const isNextDisabled = activeTab === 'identity' && !name.trim()
 
+  // Settings helpers
+  const handleAddPrompt = () => {
+    if (newPrompt.trim()) {
+      setSuggestedPrompts([...suggestedPrompts, newPrompt.trim()])
+      setNewPrompt('')
+    }
+  }
+
+  const handleRemovePrompt = (index: number) => {
+    setSuggestedPrompts(suggestedPrompts.filter((_, i) => i !== index))
+  }
+
+  const toggleSettings = () => {
+    setShowSettings(!showSettings)
+  }
+
+  // Build settings object for API
+  const buildSettings = (): AgentSettings => {
+    const limit = conversationHistoryLimit === 'custom'
+      ? parseInt(customHistoryLimit) || 10
+      : parseInt(conversationHistoryLimit)
+
+    return {
+      memory: {
+        conversationHistoryLimit: limit,
+      },
+      chat: {
+        welcomeMessage,
+        suggestedPrompts,
+      },
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -235,72 +302,195 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col">
           <div className="flex items-center justify-between">
             <TabsList className="w-fit">
-              <TabsTrigger value="identity">Identity</TabsTrigger>
-              <TabsTrigger value="instructions" disabled={!hasCreated}>Instructions</TabsTrigger>
-              <TabsTrigger value="tools" disabled={!hasCreated}>Tools</TabsTrigger>
+              <TabsTrigger value="identity" onClick={() => setShowSettings(false)}>Identity</TabsTrigger>
+              <TabsTrigger value="instructions" disabled={!hasCreated} onClick={() => setShowSettings(false)}>Instructions</TabsTrigger>
+              <TabsTrigger value="tools" disabled={!hasCreated} onClick={() => setShowSettings(false)}>Tools</TabsTrigger>
             </TabsList>
 
-            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Agent Settings</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="settings-model">AI Model</Label>
-                    <Select
-                      value={modelId || ''}
-                      onValueChange={(value) => setModelId(value || null)}
-                      disabled={isSaving || isLoadingModels}
-                    >
-                      <SelectTrigger id="settings-model">
-                        <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {models.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                      Choose the AI model that powers your agent
-                    </p>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant={showSettings ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleSettings}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
           </div>
 
           <div className="flex-1 mt-6 overflow-auto">
-            <TabsContent value="identity" className="mt-0 h-full">
-              <AgentGeneralForm
-                name={name}
-                description={description}
-                onNameChange={setName}
-                onDescriptionChange={setDescription}
-                disabled={isSaving}
-              />
-            </TabsContent>
+            {showSettings ? (
+              <div className="border border-dashed rounded-lg p-6 relative bg-background">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
 
-            <TabsContent value="instructions" className="mt-0 h-full">
-              <AgentInstructionsForm
-                instructionsConfig={instructionsConfig}
-                onInstructionsChange={setInstructionsConfig}
-                disabled={isSaving}
-              />
-            </TabsContent>
+                <Tabs value={settingsTab} onValueChange={(v) => setSettingsTab(v as SettingsTabValue)}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <button
+                      onClick={() => setShowSettings(false)}
+                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back
+                    </button>
+                    <TabsList className="w-fit">
+                      <TabsTrigger value="model">Model</TabsTrigger>
+                      <TabsTrigger value="memory">Memory</TabsTrigger>
+                      <TabsTrigger value="chat">Chat</TabsTrigger>
+                    </TabsList>
+                  </div>
 
-            <TabsContent value="tools" className="mt-0 h-full">
-              <AgentToolsForm agentId={agentId} disabled={isSaving} />
-            </TabsContent>
+                    <TabsContent value="model" className="mt-0 space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="settings-model">AI Model</Label>
+                        <Select
+                          value={modelId || ''}
+                          onValueChange={(value) => setModelId(value || null)}
+                          disabled={isSaving || isLoadingModels}
+                        >
+                          <SelectTrigger id="settings-model">
+                            <SelectValue placeholder={isLoadingModels ? 'Loading models...' : 'Select a model'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {models.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground">
+                          Choose the AI model that powers your agent
+                        </p>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="memory" className="mt-0 space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="conversation-history">Conversation History</Label>
+                        <Select
+                          value={conversationHistoryLimit}
+                          onValueChange={setConversationHistoryLimit}
+                          disabled={isSaving}
+                        >
+                          <SelectTrigger id="conversation-history">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONVERSATION_HISTORY_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {conversationHistoryLimit === 'custom' && (
+                          <Input
+                            type="number"
+                            placeholder="Enter number of messages"
+                            value={customHistoryLimit}
+                            onChange={(e) => setCustomHistoryLimit(e.target.value)}
+                            min={1}
+                            max={100}
+                            disabled={isSaving}
+                          />
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          Number of previous messages included in context. Each user message and agent response counts as one message.
+                        </p>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="chat" className="mt-0 space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="welcome-message">Welcome Message</Label>
+                        <Textarea
+                          id="welcome-message"
+                          placeholder="Hello! How can I help you today?"
+                          value={welcomeMessage}
+                          onChange={(e) => setWelcomeMessage(e.target.value)}
+                          disabled={isSaving}
+                          rows={3}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          First message shown when a user starts a new conversation
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Suggested Prompts</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Add a suggested prompt..."
+                            value={newPrompt}
+                            onChange={(e) => setNewPrompt(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddPrompt()}
+                            disabled={isSaving}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleAddPrompt}
+                            disabled={!newPrompt.trim() || isSaving}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        {suggestedPrompts.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {suggestedPrompts.map((prompt, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-1 bg-background px-3 py-1 rounded-full text-sm border"
+                              >
+                                <span className="max-w-[200px] truncate">{prompt}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePrompt(index)}
+                                  className="text-muted-foreground hover:text-foreground ml-1"
+                                  disabled={isSaving}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          Clickable prompts shown to users before they send their first message
+                        </p>
+                      </div>
+                    </TabsContent>
+                </Tabs>
+              </div>
+            ) : (
+              <>
+                <TabsContent value="identity" className="mt-0 h-full">
+                  <AgentGeneralForm
+                    name={name}
+                    description={description}
+                    onNameChange={setName}
+                    onDescriptionChange={setDescription}
+                    disabled={isSaving}
+                  />
+                </TabsContent>
+
+                <TabsContent value="instructions" className="mt-0 h-full">
+                  <AgentInstructionsForm
+                    instructionsConfig={instructionsConfig}
+                    onInstructionsChange={setInstructionsConfig}
+                    disabled={isSaving}
+                  />
+                </TabsContent>
+
+                <TabsContent value="tools" className="mt-0 h-full">
+                  <AgentToolsForm agentId={agentId} disabled={isSaving} />
+                </TabsContent>
+              </>
+            )}
           </div>
 
           {/* Navigation buttons */}

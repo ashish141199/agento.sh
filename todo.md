@@ -27,3 +27,12 @@ Also, we need some redirect URL logic as well for that. Once the user comes ther
 - [ ] also, I think for the position, the default position must be 'fit to parent' or something like that. Maybe some better words, maybe 'expanded' or something like that. 
 
 That will basically mean that in whichever container or parent you put it to, it will just do 100% width and 100% height. 
+
+
+
+- [ ] Also tell me something that whenever we are making any changes on the left side (that includes identity tab,            
+  instructions tab, tools tab and settings tab in settings), also all three tabs any settings, is the chat component      
+  being updated in real time without having for the user to have to save? Is it being updated in real time or is it       
+  being only done after saving? Because that wouldn't be the ideal case.                                                  
+                                                                                                                          
+  So for now just check and tell me, don't make any changes yet.   

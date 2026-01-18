@@ -32,6 +32,7 @@ export interface Agent {
   modelId: string | null
   model: Model | null
   instructionsConfig: InstructionsConfig | null
+  settings: AgentSettings | null
   systemPrompt: string | null
   createdAt: string
   updatedAt: string
@@ -47,6 +48,19 @@ export interface CreateAgentInput {
 }
 
 /**
+ * Agent settings type
+ */
+export interface AgentSettings {
+  memory: {
+    conversationHistoryLimit: number
+  }
+  chat: {
+    welcomeMessage: string
+    suggestedPrompts: string[]
+  }
+}
+
+/**
  * Update agent input
  */
 export interface UpdateAgentInput {
@@ -54,6 +68,7 @@ export interface UpdateAgentInput {
   description?: string
   modelId?: string | null
   instructionsConfig?: InstructionsConfig
+  settings?: AgentSettings
 }
 
 /**

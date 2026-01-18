@@ -21,6 +21,19 @@ export interface EmbedConfig {
 }
 
 /**
+ * Agent settings JSON structure
+ */
+export interface AgentSettings {
+  memory: {
+    conversationHistoryLimit: number
+  }
+  chat: {
+    welcomeMessage: string
+    suggestedPrompts: string[]
+  }
+}
+
+/**
  * Agents table schema
  * Stores AI agent configurations
  */
@@ -69,6 +82,9 @@ export const agents = pgTable('agents', {
 
   /** Embed widget configuration */
   embedConfig: jsonb('embed_config').$type<EmbedConfig>(),
+
+  /** Agent settings (memory, chat) */
+  settings: jsonb('settings').$type<AgentSettings>(),
 })
 
 /**
