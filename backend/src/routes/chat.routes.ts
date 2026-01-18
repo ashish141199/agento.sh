@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { streamText, convertToModelMessages, tool, type UIMessage, type ToolSet, stepCountIs } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { z } from 'zod'
-import { verifyAccessToken } from '../services/auth.service'
+import { authMiddleware } from '../middleware/auth.middleware'
 import { findAgentByIdWithModel, agentBelongsToUser } from '../db/modules/agent/agent.db'
 import {
   findMessagesByAgentId,
@@ -11,20 +11,6 @@ import {
 } from '../db/modules/message/message.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
 import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
-
-/**
- * Extract user ID from authorization header
- * @param request - Fastify request
- * @returns User ID or null
- */
-function getUserId(request: FastifyRequest): string | null {
-  const authHeader = request.headers.authorization
-  if (!authHeader?.startsWith('Bearer ')) return null
-
-  const token = authHeader.substring(7)
-  const payload = verifyAccessToken(token)
-  return payload?.userId || null
-}
 
 /**
  * Build authentication headers for API connector
@@ -167,15 +153,8 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
    * Get chat history for an agent
    * GET /agents/:agentId/chat/messages
    */
-  fastify.get('/agents/:agentId/chat/messages', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = getUserId(request)
-    if (!userId) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Unauthorized',
-      })
-    }
-
+  fastify.get('/agents/:agentId/chat/messages', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!
     const { agentId } = request.params as { agentId: string }
 
     const belongsToUser = await agentBelongsToUser(agentId, userId)
@@ -199,15 +178,8 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
    * Chat with an agent (streaming)
    * POST /agents/:agentId/chat
    */
-  fastify.post('/agents/:agentId/chat', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = getUserId(request)
-    if (!userId) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Unauthorized',
-      })
-    }
-
+  fastify.post('/agents/:agentId/chat', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!
     const { agentId } = request.params as { agentId: string }
     const { messages } = request.body as { messages: UIMessage[] }
 
@@ -279,15 +251,8 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
    * Clear chat history for an agent
    * DELETE /agents/:agentId/chat/messages
    */
-  fastify.delete('/agents/:agentId/chat/messages', async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = getUserId(request)
-    if (!userId) {
-      return reply.status(401).send({
-        success: false,
-        message: 'Unauthorized',
-      })
-    }
-
+  fastify.delete('/agents/:agentId/chat/messages', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = request.userId!
     const { agentId } = request.params as { agentId: string }
 
     const belongsToUser = await agentBelongsToUser(agentId, userId)
