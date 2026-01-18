@@ -86,6 +86,17 @@ export interface PublishResponse {
 }
 
 /**
+ * Public agent info (for published agents)
+ */
+export interface PublicAgent {
+  id: string
+  name: string
+  description: string | null
+  slug: string
+  modelName: string | null
+}
+
+/**
  * List agents options
  */
 export interface ListAgentsOptions {
@@ -177,4 +188,11 @@ export const agentService = {
    */
   updateEmbedConfig: (id: string, config: Partial<EmbedConfig>, token: string) =>
     api.patch<{ embedConfig: EmbedConfig }>(`/agents/${id}/embed-config`, config, token),
+
+  /**
+   * Get a published agent by slug (public endpoint)
+   * @param slug - Agent slug
+   */
+  getPublishedBySlug: (slug: string) =>
+    api.get<{ agent: PublicAgent }>(`/chat/${slug}`),
 }

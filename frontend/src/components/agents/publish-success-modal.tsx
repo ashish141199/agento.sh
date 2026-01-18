@@ -35,7 +35,8 @@ export function PublishSuccessModal({
 }: PublishSuccessModalProps) {
   const [copiedUrl, setCopiedUrl] = useState(false)
 
-  const shareUrl = `https://agentoo.ai/chat/${slug}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const shareUrl = `${appUrl}/chat/${slug}`
 
   const handleCopyUrl = async () => {
     await navigator.clipboard.writeText(shareUrl)

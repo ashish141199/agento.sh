@@ -59,8 +59,10 @@ export function EmbedModal({
     setTheme(embedConfig.theme)
   }, [embedConfig])
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   const embedCode = `<script
-  src="https://agentoo.ai/embed.js"
+  src="${appUrl}/embed.js"
   data-agent="${slug}"
   data-position="${position}"
   data-theme="${theme}"
