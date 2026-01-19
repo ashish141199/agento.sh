@@ -56,6 +56,16 @@ backend/
 - Routes handle HTTP request/response only
 - Validation schemas in `src/schemas/`
 
+### Database Schema Rules
+- **NEVER use JSON/JSONB columns for unbounded lists** - If data can grow exponentially with no predictable limit (e.g., messages, logs, history), create a separate table with foreign key relationships instead of storing as JSON array
+- JSON columns are acceptable for:
+  - Fixed/bounded configuration objects
+  - Metadata with predictable structure
+  - Small, finite sets of data
+- Examples:
+  - BAD: `messages: jsonb[]` storing chat history
+  - GOOD: Separate `messages` table with `agent_id` foreign key
+
 ### Environment
 - Bun automatically loads `.env` files - no dotenv needed
 - Required env vars: DATABASE_URL, JWT_SECRET, SMTP_*, GOOGLE_AUTH_*

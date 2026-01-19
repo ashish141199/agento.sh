@@ -60,7 +60,7 @@ export default function ProtectedLayout({
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
-      <header className="h-14 border-b bg-white dark:bg-neutral-900 flex items-center justify-between px-6 shrink-0">
+      <header className="h-14 border-b bg-white dark:bg-neutral-900 flex items-center justify-between px-4 md:px-6 shrink-0">
         <Logo asLink />
 
         <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function ProtectedLayout({
         </div>
       </header>
 
-      <main className="flex-1 p-6 overflow-hidden">{children}</main>
+      <main className="flex-1 p-4 md:p-6 overflow-hidden">{children}</main>
     </div>
   )
 }

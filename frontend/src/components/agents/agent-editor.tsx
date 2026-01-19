@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -29,9 +29,10 @@ import {
   CONVERSATION_HISTORY_OPTIONS,
   PRESET_HISTORY_LIMITS,
 } from '@/lib/defaults'
-import { ChevronLeft, ChevronRight, Loader2, Settings, X, ArrowLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Settings, X, ArrowLeft, GripVertical, MessageSquare, FileText } from 'lucide-react'
 
 type TabValue = 'identity' | 'instructions' | 'tools'
+type MobileView = 'form' | 'chat'
 type SettingsTabValue = 'model' | 'memory' | 'chat'
 
 const TABS: TabValue[] = ['identity', 'instructions', 'tools']
@@ -61,6 +62,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   const { data: models = [], isLoading: isLoadingModels } = useModels()
 
   const [activeTab, setActiveTab] = useState<TabValue>('identity')
+  const [mobileView, setMobileView] = useState<MobileView>('form')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [modelId, setModelId] = useState<string | null>(null)
@@ -69,6 +71,47 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   const [agentId, setAgentId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTabValue>('model')
+
+  // Resizable panel state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(50) // percentage
+  const [isDesktop, setIsDesktop] = useState(true)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isResizing = useRef(false)
+
+  // Detect desktop/mobile
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 768)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [])
+
+  // Handle panel resize
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current || !containerRef.current) return
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
+      // Clamp between 30% and 70%
+      setLeftPanelWidth(Math.min(Math.max(newWidth, 30), 70))
+    }
+
+    const handleMouseUp = () => {
+      isResizing.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
 
   // Settings state
   const [conversationHistoryLimit, setConversationHistoryLimit] = useState<string>(DEFAULT_CONVERSATION_HISTORY_LIMIT_STRING)
@@ -288,11 +331,40 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
   }
 
   return (
-    <div className="flex h-full gap-6">
-      {/* Left side - Configuration (50%) */}
-      <div className="w-1/2 flex flex-col">
+    <div ref={containerRef} className="flex flex-col md:flex-row h-full">
+      {/* Mobile view toggle */}
+      <div className="md:hidden flex border-b mb-4">
+        <button
+          onClick={() => setMobileView('form')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium border-b-2 transition-colors ${
+            mobileView === 'form'
+              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100'
+              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Configure
+        </button>
+        <button
+          onClick={() => setMobileView('chat')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium border-b-2 transition-colors ${
+            mobileView === 'chat'
+              ? 'border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100'
+              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          Test Chat
+        </button>
+      </div>
+
+      {/* Left side - Configuration */}
+      <div
+        className={`flex-1 md:flex-none flex flex-col min-w-0 md:min-w-[320px] ${mobileView === 'form' ? 'flex' : 'hidden'} md:flex`}
+        style={isDesktop ? { width: `${leftPanelWidth}%`, maxWidth: '700px' } : undefined}
+      >
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <TabsList className="w-fit">
               <TabsTrigger value="identity" onClick={() => setShowSettings(false)}>Identity</TabsTrigger>
               <TabsTrigger value="instructions" disabled={!hasCreated} onClick={() => setShowSettings(false)}>Instructions</TabsTrigger>
@@ -304,8 +376,8 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
               size="sm"
               onClick={toggleSettings}
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
+              <Settings className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Settings</span>
             </Button>
           </div>
 
@@ -516,15 +588,27 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
         </Tabs>
       </div>
 
-      {/* Right side - Chat (50%) */}
-      <div className="w-1/2 h-full min-h-0">
-        <AgentChat
-          agentId={agentId}
-          name={name}
-          description={description}
-          welcomeMessage={welcomeMessage}
-          suggestedPrompts={suggestedPrompts}
-        />
+      {/* Resize handle - desktop only */}
+      <div
+        className="hidden md:flex w-4 flex-shrink-0 items-center justify-center cursor-col-resize group"
+        onMouseDown={handleResizeMouseDown}
+      >
+        <div className="w-1 h-full hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors relative">
+          <GripVertical className="h-4 w-4 text-neutral-300 dark:text-neutral-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+
+      {/* Right side - Chat */}
+      <div className={`h-full min-h-0 flex-1 min-w-0 md:min-w-[280px] w-full ${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex`}>
+        <div className="w-full h-full">
+          <AgentChat
+            agentId={agentId}
+            name={name}
+            description={description}
+            welcomeMessage={welcomeMessage}
+            suggestedPrompts={suggestedPrompts}
+          />
+        </div>
       </div>
     </div>
   )

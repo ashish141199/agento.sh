@@ -6,3 +6,4 @@
 export * from './auth.schema'
 export * from './common.schema'
 export * from './agent.schema'
+export * from './builder.schema'

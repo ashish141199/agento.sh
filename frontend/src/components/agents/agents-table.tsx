@@ -86,7 +86,7 @@ export function AgentsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 dark:text-neutral-500" />
         <Input
           placeholder="Search agents..."
@@ -96,7 +96,36 @@ export function AgentsTable() {
         />
       </div>
 
-      <div className="border rounded-lg bg-white dark:bg-neutral-900">
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-3">
+        {agents.length === 0 ? (
+          <div className="text-center py-12 text-neutral-500 dark:text-neutral-400 border rounded-lg bg-white dark:bg-neutral-900">
+            {search ? 'No agents found' : 'No agents yet. Create your first agent!'}
+          </div>
+        ) : (
+          agents.map((agent) => (
+            <div
+              key={agent.id}
+              onClick={() => handleRowClick(agent)}
+              className="border rounded-lg bg-white dark:bg-neutral-900 p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <div className="font-medium text-neutral-900 dark:text-neutral-100">{agent.name}</div>
+              {agent.description && (
+                <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
+                  {agent.description}
+                </div>
+              )}
+              <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-neutral-500">
+                {agent.model?.name && <span>{agent.model.name}</span>}
+                <span>{formatDate(agent.createdAt)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden md:block border rounded-lg bg-white dark:bg-neutral-900">
         <Table>
           <TableHeader>
             <TableRow>

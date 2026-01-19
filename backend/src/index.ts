@@ -8,6 +8,7 @@ import { chatRoutes } from './routes/chat.routes'
 import { toolRoutes } from './routes/tools.routes'
 import { publishRoutes } from './routes/publish.routes'
 import { conversationRoutes } from './routes/conversation.routes'
+import { builderRoutes } from './routes/builder.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -49,6 +50,7 @@ await fastify.register(chatRoutes)
 await fastify.register(toolRoutes)
 await fastify.register(publishRoutes)
 await fastify.register(conversationRoutes)
+await fastify.register(builderRoutes)
 
 /**
  * Health check route
