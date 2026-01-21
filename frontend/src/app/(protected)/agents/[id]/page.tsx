@@ -158,6 +158,7 @@ function EditAgentPageInner({ id }: { id: string }) {
         onAgentUpdate={handleAgentUpdate}
         agentId={id}
         initialMessage={initialPrompt}
+        agent={agent}
       />
 
       {/* Delete confirmation dialog */}

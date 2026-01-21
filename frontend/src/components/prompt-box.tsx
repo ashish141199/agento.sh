@@ -6,7 +6,7 @@ import { ArrowUp, Loader2, Headphones, ShoppingCart, Calendar, HelpCircle } from
 /**
  * Suggestion prompts for the prompt box
  */
-const SUGGESTIONS = [
+export const SUGGESTIONS = [
   {
     icon: Headphones,
     label: 'Support Agent',

@@ -21,6 +21,7 @@ import { useAskUser } from '@/hooks/use-ask-user'
 import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
 import { useResizablePanel } from '@/hooks/use-resizable-panel'
 import type { AskUserInput, AskUserResponse } from '@/types/ask-user.types'
+import { SUGGESTIONS } from '@/components/prompt-box'
 
 /** Props for BuilderSidebar component */
 interface BuilderSidebarProps {
@@ -34,6 +35,8 @@ interface BuilderSidebarProps {
   agentId?: string | null
   /** Initial message to send automatically */
   initialMessage?: string
+  /** Current agent data */
+  agent?: Agent | null
 }
 
 /** Props for BuilderChatInner component */
@@ -46,6 +49,8 @@ interface BuilderChatInnerProps {
   onAgentUpdate: (agent: Agent) => void
   /** Initial prompt to auto-send */
   initialPrompt?: string
+  /** Current agent data */
+  agent?: Agent | null
 }
 
 /**
@@ -56,6 +61,7 @@ function BuilderChatInner({
   initialMessages,
   onAgentUpdate,
   initialPrompt,
+  agent,
 }: BuilderChatInnerProps) {
   const [input, setInput] = useState('')
   const hasAutoSentRef = useRef(false)
@@ -192,6 +198,22 @@ function BuilderChatInner({
             </div>
             <p className="text-sm font-medium">I&apos;m here to help you build your agent</p>
             <p className="text-xs mt-1">Tell me what kind of agent you want to create</p>
+            {/* Show suggestions only when agent has no name/description and no prior messages */}
+            {!agent?.name && !agent?.description && initialMessages.length === 0 && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center px-4">
+                {SUGGESTIONS.map((suggestion) => (
+                  <button
+                    key={suggestion.label}
+                    type="button"
+                    onClick={() => setInput(suggestion.prompt)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-full hover:border-neutral-400 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+                  >
+                    <suggestion.icon className="h-3 w-3" />
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -266,6 +288,7 @@ export function BuilderSidebar({
   onAgentUpdate,
   agentId,
   initialMessage,
+  agent,
 }: BuilderSidebarProps) {
   const [isInitializing, setIsInitializing] = useState(false)
   const [initialMessages, setInitialMessages] = useState<BuilderMessage[]>([])
@@ -392,6 +415,7 @@ export function BuilderSidebar({
             initialMessages={initialMessages}
             onAgentUpdate={onAgentUpdate}
             initialPrompt={initialMessage}
+            agent={agent}
           />
         )}
       </div>
