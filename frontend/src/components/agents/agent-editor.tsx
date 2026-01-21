@@ -99,17 +99,24 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
     document.addEventListener('mouseup', handleMouseUp)
   }, [])
 
-  // Notify parent of publish state changes
+  // Track previous publish state to avoid unnecessary updates
+  const prevPublishStateRef = useRef<string>('')
+
+  // Notify parent of publish state changes only when values actually change
   useEffect(() => {
-    onPublishStateChange?.({
-      agentId: editor.agentId,
-      agentName: editor.name,
-      hasUnsavedChanges: editor.hasUnsavedChanges,
-      isFormComplete: !!editor.name.trim(),
-      onSave: editor.handleSave,
-      isSaving: editor.isSaving,
-    })
-  }, [editor.agentId, editor.name, editor.hasUnsavedChanges, editor.isSaving, editor.handleSave, onPublishStateChange])
+    const stateKey = `${editor.agentId}-${editor.name}-${editor.hasUnsavedChanges}-${editor.isSaving}`
+    if (prevPublishStateRef.current !== stateKey) {
+      prevPublishStateRef.current = stateKey
+      onPublishStateChange?.({
+        agentId: editor.agentId,
+        agentName: editor.name,
+        hasUnsavedChanges: editor.hasUnsavedChanges,
+        isFormComplete: !!editor.name.trim(),
+        onSave: editor.handleSave,
+        isSaving: editor.isSaving,
+      })
+    }
+  }, [editor.agentId, editor.name, editor.hasUnsavedChanges, editor.isSaving, onPublishStateChange, editor.handleSave])
 
   // Tab navigation
   const currentTabIndex = TABS.indexOf(activeTab)

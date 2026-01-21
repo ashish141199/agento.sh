@@ -6,7 +6,7 @@
  * @module hooks/use-agent-editor
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { agentService, type Agent, type InstructionsConfig, type AgentSettings } from '@/services/agent.service'
@@ -219,6 +219,18 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
 
   const isSaving = createMutation.isPending || updateMutation.isPending
 
+  // Store mutation refs for stable callbacks
+  const updateMutationRef = useRef(updateMutation)
+  const createMutationRef = useRef(createMutation)
+  const stateRef = useRef({ hasCreated, agentId })
+
+  // Keep refs up to date
+  useEffect(() => {
+    updateMutationRef.current = updateMutation
+    createMutationRef.current = createMutation
+    stateRef.current = { hasCreated, agentId }
+  })
+
   /**
    * Add a new suggested prompt
    */
@@ -238,26 +250,29 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
 
   /**
    * Save current changes (update if agent exists)
+   * Uses ref pattern for stable function reference
    */
   const handleSave = useCallback(async () => {
-    if (hasCreated && agentId) {
-      await updateMutation.mutateAsync()
+    if (stateRef.current.hasCreated && stateRef.current.agentId) {
+      await updateMutationRef.current.mutateAsync()
     }
-  }, [hasCreated, agentId, updateMutation])
+  }, [])
 
   /**
    * Create a new agent
+   * Uses ref pattern for stable function reference
    */
   const handleCreate = useCallback(async () => {
-    await createMutation.mutateAsync()
-  }, [createMutation])
+    await createMutationRef.current.mutateAsync()
+  }, [])
 
   /**
    * Update existing agent
+   * Uses ref pattern for stable function reference
    */
   const handleUpdate = useCallback(async () => {
-    await updateMutation.mutateAsync()
-  }, [updateMutation])
+    await updateMutationRef.current.mutateAsync()
+  }, [])
 
   return {
     name,
