@@ -173,7 +173,7 @@ function OptionButton({ label, selected, onClick }: OptionButtonProps) {
     <button
       onClick={onClick}
       className={cn(
-        'px-3 py-1.5 text-xs rounded-full border transition-all text-left',
+        'px-3 py-1.5 text-xs rounded-md border transition-all text-left',
         selected
           ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
           : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
