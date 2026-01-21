@@ -122,4 +122,13 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Ensure all clickable elements have pointer cursor when not disabled */
+  button:not(:disabled),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
