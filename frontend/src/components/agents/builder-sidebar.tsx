@@ -22,33 +22,55 @@ interface BuilderSidebarProps {
 }
 
 /**
+ * Get display name for a tool
+ */
+function getToolDisplayName(name: string): string {
+  switch (name) {
+    case 'createOrUpdateAgent':
+      return 'Configuring agent'
+    case 'createTool':
+      return 'Creating tool'
+    case 'updateTool':
+      return 'Updating tool'
+    case 'deleteTool':
+      return 'Deleting tool'
+    default:
+      return name
+  }
+}
+
+/**
+ * Get tool status from AI SDK state
+ */
+function getToolStatus(state: string | undefined): 'pending' | 'success' | 'error' {
+  switch (state) {
+    case 'output-available':
+      return 'success'
+    case 'output-error':
+      return 'error'
+    case 'input-streaming':
+    case 'input-available':
+    default:
+      return 'pending'
+  }
+}
+
+/**
  * Tool call card component for displaying tool execution in chat
  */
 function ToolCallCard({ toolName, status }: { toolName: string; status: 'pending' | 'success' | 'error' }) {
-  const getToolDisplayName = (name: string) => {
-    switch (name) {
-      case 'createOrUpdateAgent':
-        return 'Configuring agent'
-      case 'createTool':
-        return 'Creating tool'
-      case 'updateTool':
-        return 'Updating tool'
-      case 'deleteTool':
-        return 'Deleting tool'
-      default:
-        return name
-    }
-  }
-
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1">
-      <Wrench className="h-3 w-3 text-neutral-500 dark:text-neutral-400" />
-      <span className="text-neutral-600 dark:text-neutral-300">{getToolDisplayName(toolName)}</span>
+    <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
+      <Wrench className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
+      <span className="text-neutral-600 dark:text-neutral-300 flex-1">{getToolDisplayName(toolName)}</span>
       {status === 'pending' && (
-        <Loader2 className="h-3 w-3 animate-spin text-neutral-400 ml-auto" />
+        <Loader2 className="h-3 w-3 animate-spin text-neutral-400 shrink-0" />
       )}
       {status === 'success' && (
-        <Check className="h-3 w-3 text-green-500 ml-auto" />
+        <Check className="h-3 w-3 text-green-500 shrink-0" />
+      )}
+      {status === 'error' && (
+        <X className="h-3 w-3 text-red-500 shrink-0" />
       )}
     </div>
   )
@@ -233,22 +255,17 @@ function BuilderChatInner({
                     </div>
                   )
                 }
-                // Handle tool invocation parts
-                if (part.type === 'tool-invocation' || part.type.startsWith('tool-')) {
-                  const toolPart = part as { toolName?: string; state?: string; type: string }
-                  const toolName = toolPart.toolName || part.type.replace('tool-', '')
-                  const state = toolPart.state || 'result'
+                // Handle tool parts (format: tool-{toolName})
+                if (part.type.startsWith('tool-')) {
+                  const toolPart = part as { state?: string; type: string }
+                  const toolName = part.type.replace('tool-', '')
                   return (
                     <ToolCallCard
                       key={index}
                       toolName={toolName}
-                      status={state === 'result' ? 'success' : 'pending'}
+                      status={getToolStatus(toolPart.state)}
                     />
                   )
-                }
-                // Handle tool result parts
-                if (part.type === 'tool-result') {
-                  return null // Already handled by tool-invocation
                 }
                 return null
               })}

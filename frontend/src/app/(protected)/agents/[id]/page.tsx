@@ -2,13 +2,23 @@
 
 import { use, useState, useCallback, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { ArrowLeft, Sparkles } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Sparkles, MoreVertical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { AgentEditor, type PublishState } from '@/components/agents/agent-editor'
 import { PublishButton } from '@/components/agents/publish-button'
 import { BuilderSidebar } from '@/components/agents/builder-sidebar'
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { useAgent } from '@/hooks/use-agent'
+import { useAuthStore } from '@/stores/auth.store'
+import { agentService } from '@/services/agent.service'
+import { notification } from '@/lib/notifications'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Agent } from '@/services/agent.service'
 
@@ -20,13 +30,17 @@ interface EditAgentPageProps {
  * Inner component that uses search params
  */
 function EditAgentPageInner({ id }: { id: string }) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const { accessToken } = useAuthStore()
   const { data: agent, isLoading, refetch } = useAgent(id)
 
   const [publishState, setPublishState] = useState<PublishState | null>(null)
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>(undefined)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Check URL params on mount
   useEffect(() => {
@@ -54,6 +68,21 @@ function EditAgentPageInner({ id }: { id: string }) {
 
   const toggleBuilder = () => {
     setIsBuilderOpen(!isBuilderOpen)
+  }
+
+  const handleDeleteAgent = async () => {
+    if (!accessToken) return
+
+    setIsDeleting(true)
+    try {
+      await agentService.delete(id, accessToken)
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      notification.success('Agent deleted successfully')
+      router.push('/dashboard')
+    } catch (error) {
+      notification.error('Failed to delete agent')
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -92,6 +121,22 @@ function EditAgentPageInner({ id }: { id: string }) {
                 isSaving={publishState.isSaving}
               />
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Agent
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -111,6 +156,17 @@ function EditAgentPageInner({ id }: { id: string }) {
         onAgentUpdate={handleAgentUpdate}
         agentId={id}
         initialMessage={initialPrompt}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmationDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleDeleteAgent}
+        title="Delete Agent"
+        description="This will permanently delete this agent and all its data. This action cannot be undone."
+        confirmText="delete"
+        isDeleting={isDeleting}
       />
     </div>
   )

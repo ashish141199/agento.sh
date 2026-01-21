@@ -101,7 +101,7 @@ export function AgentsTable({ search = '' }: AgentsTableProps) {
               onClick={() => handleRowClick(agent)}
               className="border rounded-lg bg-white dark:bg-neutral-900 p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
             >
-              <div className="font-medium text-neutral-900 dark:text-neutral-100">{agent.name}</div>
+              <div className="font-medium text-neutral-900 dark:text-neutral-100">{agent.name || 'Untitled Agent'}</div>
               {agent.description && (
                 <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
                   {agent.description}
@@ -145,7 +145,7 @@ export function AgentsTable({ search = '' }: AgentsTableProps) {
                   onClick={() => handleRowClick(agent)}
                   className="cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800"
                 >
-                  <TableCell className="font-medium">{agent.name}</TableCell>
+                  <TableCell className="font-medium">{agent.name || 'Untitled Agent'}</TableCell>
                   <TableCell className="text-neutral-600 dark:text-neutral-400 truncate max-w-[400px]">
                     {agent.description || '-'}
                   </TableCell>
