@@ -42,7 +42,7 @@ function EditAgentPageInner({ id }: { id: string }) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Check URL params on mount
+  // Check URL params on mount and clear them after reading
   useEffect(() => {
     const builderParam = searchParams.get('builder')
     const promptParam = searchParams.get('prompt')
@@ -52,8 +52,10 @@ function EditAgentPageInner({ id }: { id: string }) {
       if (promptParam) {
         setInitialPrompt(decodeURIComponent(promptParam))
       }
+      // Clear URL params to prevent re-triggering on refresh
+      router.replace(`/agents/${id}`, { scroll: false })
     }
-  }, [searchParams])
+  }, [searchParams, router, id])
 
   const handlePublishStateChange = useCallback((state: PublishState) => {
     setPublishState(state)

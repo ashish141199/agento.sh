@@ -11,6 +11,12 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  tls: {
+    // Allow self-signed certs in development
+    rejectUnauthorized: process.env.NODE_ENV === 'production',
+    // Bypass server identity check (workaround for Bun TLS issue)
+    checkServerIdentity: () => undefined,
+  },
 })
 
 /**
