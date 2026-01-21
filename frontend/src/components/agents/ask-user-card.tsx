@@ -1,126 +1,114 @@
 'use client'
 
+/**
+ * Ask User Card Component
+ * Renders clarification questions from an AI agent and collects user responses
+ * Used in both Agent Builder and Agent Chat interfaces
+ * @module components/agents/ask-user-card
+ */
+
 import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, ChevronDown, HelpCircle, SkipForward } from 'lucide-react'
+import {
+  type AskUserQuestion,
+  type AskUserInput,
+  type AskUserResponse,
+  type QuestionAnswer,
+  formatAnswerForDisplay,
+  isQuestionAnswered,
+} from '@/types/ask-user.types'
 
-/**
- * Question types
- */
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'text'
+// Re-export types for consumers
+export type { AskUserInput, AskUserResponse, QuestionAnswer, AskUserQuestion }
 
-/**
- * Option for MCQ questions
- */
-export interface QuestionOption {
-  label: string
-  value: string
-}
-
-/**
- * Question structure from the agent
- */
-export interface AskUserQuestion {
-  id: string
-  text: string
-  type: QuestionType
-  options?: QuestionOption[]
-  allowOther?: boolean
-}
-
-/**
- * Answer structure to send back
- */
-export interface QuestionAnswer {
-  questionId: string
-  selectedOptions?: string[]
-  otherText?: string
-  text?: string
-}
-
-/**
- * Full response to send back to agent
- */
-export interface AskUserResponse {
-  answers: QuestionAnswer[]
-  skipped: boolean
-}
-
-/**
- * Input from the askUser tool
- */
-export interface AskUserInput {
-  questions: AskUserQuestion[]
-}
-
-interface AskUserCardProps {
-  input: AskUserInput
-  onSubmit: (response: AskUserResponse) => void
-  isSubmitting?: boolean
-}
-
-/**
- * Single question component
- */
-function QuestionItem({
-  question,
-  answer,
-  onAnswerChange,
-}: {
+/** Props for the QuestionItem component */
+interface QuestionItemProps {
   question: AskUserQuestion
   answer: QuestionAnswer
   onAnswerChange: (answer: QuestionAnswer) => void
-}) {
+}
+
+/**
+ * Renders a single question with appropriate input type
+ * @param props - Question item props
+ */
+function QuestionItem({ question, answer, onAnswerChange }: QuestionItemProps) {
   const [showOtherInput, setShowOtherInput] = useState(false)
 
+  /**
+   * Handles option selection for MCQ questions
+   * @param value - The selected option value
+   */
   const handleOptionClick = useCallback(
     (value: string) => {
       if (question.type === 'single_choice') {
-        if (value === '__other__') {
-          setShowOtherInput(true)
-          onAnswerChange({ ...answer, selectedOptions: [value] })
-        } else {
-          setShowOtherInput(false)
-          onAnswerChange({ ...answer, selectedOptions: [value], otherText: undefined })
-        }
+        handleSingleChoiceSelect(value)
       } else if (question.type === 'multiple_choice') {
-        const current = answer.selectedOptions || []
-        const isSelected = current.includes(value)
-
-        if (value === '__other__') {
-          if (isSelected) {
-            setShowOtherInput(false)
-            onAnswerChange({
-              ...answer,
-              selectedOptions: current.filter((v) => v !== value),
-              otherText: undefined,
-            })
-          } else {
-            setShowOtherInput(true)
-            onAnswerChange({ ...answer, selectedOptions: [...current, value] })
-          }
-        } else {
-          onAnswerChange({
-            ...answer,
-            selectedOptions: isSelected ? current.filter((v) => v !== value) : [...current, value],
-          })
-        }
+        handleMultipleChoiceSelect(value)
       }
     },
     [question.type, answer, onAnswerChange]
   )
 
-  const isOptionSelected = (value: string) => {
+  /**
+   * Handles single choice selection (radio behavior)
+   */
+  const handleSingleChoiceSelect = (value: string) => {
+    if (value === '__other__') {
+      setShowOtherInput(true)
+      onAnswerChange({ ...answer, selectedOptions: [value] })
+    } else {
+      setShowOtherInput(false)
+      onAnswerChange({ ...answer, selectedOptions: [value], otherText: undefined })
+    }
+  }
+
+  /**
+   * Handles multiple choice selection (checkbox behavior)
+   */
+  const handleMultipleChoiceSelect = (value: string) => {
+    const current = answer.selectedOptions || []
+    const isSelected = current.includes(value)
+
+    if (value === '__other__') {
+      if (isSelected) {
+        setShowOtherInput(false)
+        onAnswerChange({
+          ...answer,
+          selectedOptions: current.filter((v) => v !== value),
+          otherText: undefined,
+        })
+      } else {
+        setShowOtherInput(true)
+        onAnswerChange({ ...answer, selectedOptions: [...current, value] })
+      }
+    } else {
+      onAnswerChange({
+        ...answer,
+        selectedOptions: isSelected
+          ? current.filter((v) => v !== value)
+          : [...current, value],
+      })
+    }
+  }
+
+  /**
+   * Checks if an option is currently selected
+   */
+  const isOptionSelected = (value: string): boolean => {
     return answer.selectedOptions?.includes(value) ?? false
   }
 
-  // Text question
+  // Render text input question
   if (question.type === 'text') {
     return (
       <div className="space-y-2">
-        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">{question.text}</p>
+        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+          {question.text}
+        </p>
         <Input
           value={answer.text || ''}
           onChange={(e) => onAnswerChange({ ...answer, text: e.target.value })}
@@ -131,7 +119,7 @@ function QuestionItem({
     )
   }
 
-  // MCQ question (single or multiple choice)
+  // Render MCQ question
   const options = question.options || []
   const allOptions = question.allowOther
     ? [...options, { label: 'Other', value: '__other__' }]
@@ -142,27 +130,20 @@ function QuestionItem({
       <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
         {question.text}
         {question.type === 'multiple_choice' && (
-          <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">(Select multiple)</span>
+          <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
+            (Select multiple)
+          </span>
         )}
       </p>
       <div className="flex flex-wrap gap-2">
-        {allOptions.map((option) => {
-          const selected = isOptionSelected(option.value)
-          return (
-            <button
-              key={option.value}
-              onClick={() => handleOptionClick(option.value)}
-              className={cn(
-                'px-3 py-1.5 text-sm rounded-full border transition-all',
-                selected
-                  ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
-                  : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
-              )}
-            >
-              {option.label}
-            </button>
-          )
-        })}
+        {allOptions.map((option) => (
+          <OptionButton
+            key={option.value}
+            label={option.label}
+            selected={isOptionSelected(option.value)}
+            onClick={() => handleOptionClick(option.value)}
+          />
+        ))}
       </div>
       {showOtherInput && (
         <Input
@@ -177,36 +158,63 @@ function QuestionItem({
   )
 }
 
+/** Props for the OptionButton component */
+interface OptionButtonProps {
+  label: string
+  selected: boolean
+  onClick: () => void
+}
+
 /**
- * Answered summary component - compact version matching ToolCallCard style
+ * Renders a selectable option button (pill style)
  */
-export function AnsweredSummary({
-  input,
-  response,
-  compact = false,
-}: {
+function OptionButton({ label, selected, onClick }: OptionButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'px-3 py-1.5 text-xs rounded-full border transition-all text-left',
+        selected
+          ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
+          : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300'
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
+/** Props for AnsweredSummary component */
+interface AnsweredSummaryProps {
   input: AskUserInput
   response: AskUserResponse
-  compact?: boolean
-}) {
+}
+
+/**
+ * Displays a compact summary of answered questions
+ * Expandable to show full question/answer details
+ */
+export function AnsweredSummary({ input, response }: AnsweredSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
+  // Skipped questions - simple display
   if (response.skipped) {
     return (
       <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
         <SkipForward className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
-        <span className="text-neutral-600 dark:text-neutral-300 flex-1">Questions skipped</span>
+        <span className="text-neutral-600 dark:text-neutral-300 flex-1">
+          Questions skipped
+        </span>
       </div>
     )
   }
 
-  // Build answers summary for compact view
-  const answeredCount = response.answers.filter(a =>
-    a.text || (a.selectedOptions && a.selectedOptions.length > 0)
-  ).length
+  // Count answered questions
+  const answeredCount = response.answers.filter(isQuestionAnswered).length
 
   return (
     <div className="bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
+      {/* Collapsed header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center gap-2 py-1.5 px-3"
@@ -215,41 +223,29 @@ export function AnsweredSummary({
         <span className="text-neutral-600 dark:text-neutral-300 flex-1 text-left">
           {answeredCount} question{answeredCount !== 1 ? 's' : ''} answered
         </span>
-        <ChevronDown className={cn(
-          "h-3 w-3 text-neutral-400 shrink-0 transition-transform",
-          isExpanded && "rotate-180"
-        )} />
+        <ChevronDown
+          className={cn(
+            'h-3 w-3 text-neutral-400 shrink-0 transition-transform',
+            isExpanded && 'rotate-180'
+          )}
+        />
       </button>
 
+      {/* Expanded details */}
       {isExpanded && (
         <div className="px-3 pb-2 pt-1 border-t border-neutral-200 dark:border-neutral-600 space-y-1.5">
           {input.questions.map((question) => {
             const answer = response.answers.find((a) => a.questionId === question.id)
             if (!answer) return null
 
-            let displayAnswer = ''
-            if (question.type === 'text') {
-              displayAnswer = answer.text || 'No answer'
-            } else {
-              const selectedLabels =
-                answer.selectedOptions
-                  ?.filter((v) => v !== '__other__')
-                  .map((v) => {
-                    const opt = question.options?.find((o) => o.value === v)
-                    return opt?.label || v
-                  }) || []
-
-              if (answer.otherText) {
-                selectedLabels.push(`Other: ${answer.otherText}`)
-              }
-
-              displayAnswer = selectedLabels.join(', ') || 'No selection'
-            }
-
             return (
               <div key={question.id}>
-                <span className="text-neutral-500 dark:text-neutral-400">{question.text}</span>
-                <p className="text-neutral-700 dark:text-neutral-200 font-medium">{displayAnswer}</p>
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {question.text}
+                </span>
+                <p className="text-neutral-700 dark:text-neutral-200 font-medium">
+                  {formatAnswerForDisplay(question, answer)}
+                </p>
               </div>
             )
           })}
@@ -259,11 +255,19 @@ export function AnsweredSummary({
   )
 }
 
+/** Props for AskUserCard component */
+interface AskUserCardProps {
+  input: AskUserInput
+  onSubmit: (response: AskUserResponse) => void
+  isSubmitting?: boolean
+}
+
 /**
- * AskUserCard component
- * Renders questions from the agent and collects user responses
+ * Main component for displaying askUser questions and collecting responses
+ * Shows a card with all questions and submit/skip actions
  */
 export function AskUserCard({ input, onSubmit, isSubmitting }: AskUserCardProps) {
+  // Initialize answers state with empty answer for each question
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>(() => {
     const initial: Record<string, QuestionAnswer> = {}
     for (const q of input.questions) {
@@ -272,10 +276,16 @@ export function AskUserCard({ input, onSubmit, isSubmitting }: AskUserCardProps)
     return initial
   })
 
+  /**
+   * Updates the answer for a specific question
+   */
   const handleAnswerChange = useCallback((questionId: string, answer: QuestionAnswer) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }))
   }, [])
 
+  /**
+   * Submits all answers
+   */
   const handleSubmit = useCallback(() => {
     onSubmit({
       answers: Object.values(answers),
@@ -283,6 +293,9 @@ export function AskUserCard({ input, onSubmit, isSubmitting }: AskUserCardProps)
     })
   }, [answers, onSubmit])
 
+  /**
+   * Skips all questions
+   */
   const handleSkip = useCallback(() => {
     onSubmit({
       answers: [],
@@ -290,12 +303,8 @@ export function AskUserCard({ input, onSubmit, isSubmitting }: AskUserCardProps)
     })
   }, [onSubmit])
 
-  // Check if any answer is provided
-  const hasAnyAnswer = Object.values(answers).some((a) => {
-    if (a.text) return true
-    if (a.selectedOptions && a.selectedOptions.length > 0) return true
-    return false
-  })
+  // Check if at least one answer is provided
+  const hasAnyAnswer = Object.values(answers).some(isQuestionAnswered)
 
   return (
     <div className="p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/20">

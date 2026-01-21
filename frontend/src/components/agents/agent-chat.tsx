@@ -1,34 +1,37 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+/**
+ * Agent Chat Component
+ * Real-time chat interface for user-created agents
+ * @module components/agents/agent-chat
+ */
+
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send, Loader2, MessageSquare } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth.store'
-import { refreshAccessToken, handleAuthFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { ToolCallCard, type ToolCallPart } from './tool-call-card'
-import {
-  AskUserCard,
-  AnsweredSummary,
-  type AskUserInput,
-  type AskUserResponse,
-} from './ask-user-card'
+import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
 
+/** Props for AgentChat component */
 interface AgentChatProps {
+  /** Agent ID (null if agent not created yet) */
   agentId: string | null
+  /** Agent display name */
   name: string
+  /** Agent description */
   description: string
+  /** Optional welcome message shown at start */
   welcomeMessage?: string
+  /** Optional suggested prompts for users */
   suggestedPrompts?: string[]
 }
 
-/**
- * Props for inner chat component
- */
+/** Props for inner chat component */
 interface AgentChatInnerProps {
   agentId: string
   name: string
@@ -45,46 +48,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Custom fetch that handles 401 errors with token refresh
-  const fetchWithAuth = useCallback(async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const currentToken = useAuthStore.getState().accessToken
-
-    // Merge headers properly - init.headers could be Headers object or plain object
-    const headers = new Headers(init?.headers)
-    headers.set('Authorization', `Bearer ${currentToken}`)
-
-    const response = await fetch(url, {
-      ...init,
-      headers,
-      credentials: 'include',
-    })
-
-    console.log('[Chat] Response status:', response.status)
-
-    // Handle 401 by refreshing token and retrying
-    if (response.status === 401) {
-      console.log('[Chat] Got 401, attempting token refresh...')
-      const newToken = await refreshAccessToken()
-
-      if (newToken) {
-        console.log('[Chat] Token refreshed, retrying request...')
-        const retryHeaders = new Headers(init?.headers)
-        retryHeaders.set('Authorization', `Bearer ${newToken}`)
-
-        return fetch(url, {
-          ...init,
-          headers: retryHeaders,
-          credentials: 'include',
-        })
-      } else {
-        console.log('[Chat] Token refresh failed, redirecting to login...')
-        handleAuthFailure()
-        throw new Error('Session expired. Please log in again.')
-      }
-    }
-
-    return response
-  }, [])
+  const fetchWithAuth = useFetchWithAuth()
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
@@ -93,66 +57,12 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
     })
   }, [agentId, fetchWithAuth])
 
-  const { messages, sendMessage, addToolOutput, status } = useChat({
+  const { messages, sendMessage, status } = useChat({
     id: `agent-chat-${agentId}`,
     transport,
   })
 
   const isLoading = status === 'submitted' || status === 'streaming'
-
-  // Track submitted askUser responses by toolCallId
-  const [submittedResponses, setSubmittedResponses] = useState<
-    Record<string, { input: AskUserInput; response: AskUserResponse }>
-  >({})
-  const [submittingToolId, setSubmittingToolId] = useState<string | null>(null)
-
-  /**
-   * Handle askUser tool response submission
-   */
-  const handleAskUserSubmit = useCallback(
-    async (toolCallId: string, input: AskUserInput, response: AskUserResponse) => {
-      setSubmittingToolId(toolCallId)
-      try {
-        // Store the response for display
-        setSubmittedResponses((prev) => ({
-          ...prev,
-          [toolCallId]: { input, response },
-        }))
-
-        // Send the tool output back to the agent
-        await addToolOutput({
-          toolCallId,
-          tool: 'askUser',
-          output: response,
-        })
-
-        // Continue the conversation
-        sendMessage()
-      } finally {
-        setSubmittingToolId(null)
-      }
-    },
-    [addToolOutput, sendMessage]
-  )
-
-  // Check if there's a pending askUser tool awaiting response
-  const hasPendingAskUser = useMemo(() => {
-    return messages.some((m) =>
-      m.parts?.some((part) => {
-        if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
-          const toolPart = part as unknown as ToolCallPart
-          const toolName = toolPart.toolName || part.type.replace('tool-', '')
-          const toolCallId = toolPart.toolCallId
-          return (
-            toolName === 'askUser' &&
-            toolPart.state === 'input-available' &&
-            !submittedResponses[toolCallId]
-          )
-        }
-        return false
-      })
-    )
-  }, [messages, submittedResponses])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -168,13 +78,11 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
 
     sendMessage({ text: input })
     setInput('')
-    // Keep focus on input after submission
     inputRef.current?.focus()
   }
 
   /**
    * Handle click on a suggested prompt
-   * @param prompt - The suggested prompt text to send
    */
   const handleSuggestedPrompt = (prompt: string) => {
     if (isLoading) return
@@ -269,72 +177,11 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
                           </div>
                         )
                       }
-                      // Handle tool call parts (dynamic-tool or tool-*)
+                      // Handle tool call parts (API connectors configured by users)
                       if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
                         const toolPart = part as unknown as ToolCallPart
                         const toolName = toolPart.toolName || part.type.replace('tool-', '')
-                        const toolCallId = toolPart.toolCallId
 
-                        // Special handling for askUser tool
-                        if (toolName === 'askUser') {
-                          const input = toolPart.input as AskUserInput | undefined
-                          const submittedData = submittedResponses[toolCallId]
-                          const isWaitingForInput =
-                            toolPart.state === 'input-available' && !submittedData
-
-                          // Show AskUserCard if waiting for input
-                          if (isWaitingForInput && input?.questions) {
-                            return (
-                              <AskUserCard
-                                key={index}
-                                input={input}
-                                onSubmit={(response) =>
-                                  handleAskUserSubmit(toolCallId, input, response)
-                                }
-                                isSubmitting={submittingToolId === toolCallId}
-                              />
-                            )
-                          }
-
-                          // Show summary if already submitted or has output
-                          if (submittedData) {
-                            return (
-                              <AnsweredSummary
-                                key={index}
-                                input={submittedData.input}
-                                response={submittedData.response}
-                              />
-                            )
-                          }
-
-                          // Show summary from tool output if available
-                          if (toolPart.state === 'output-available' && toolPart.output) {
-                            const outputResponse = toolPart.output as AskUserResponse
-                            if (input?.questions) {
-                              return (
-                                <AnsweredSummary
-                                  key={index}
-                                  input={input}
-                                  response={outputResponse}
-                                />
-                              )
-                            }
-                          }
-
-                          // Fallback to regular tool card for other states
-                          return (
-                            <ToolCallCard
-                              key={index}
-                              part={{
-                                ...toolPart,
-                                toolName,
-                                title: 'Asking questions...',
-                              }}
-                            />
-                          )
-                        }
-
-                        // Regular tool call handling
                         return (
                           <ToolCallCard
                             key={index}
@@ -395,7 +242,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
             placeholder="Type a message..."
             className="flex-1"
           />
-          <Button type="submit" disabled={!input.trim() || isLoading || hasPendingAskUser} size="icon">
+          <Button type="submit" disabled={!input.trim() || isLoading} size="icon">
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -410,9 +257,9 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
 
 /**
  * Agent chat component with real-time streaming
+ * Shows a placeholder if agent is not created yet
  */
 export function AgentChat({ agentId, name, description, welcomeMessage, suggestedPrompts }: AgentChatProps) {
-  // Show placeholder if no agent is created yet
   if (!agentId) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-500 border rounded-lg bg-neutral-50 dark:bg-neutral-900">
@@ -423,7 +270,6 @@ export function AgentChat({ agentId, name, description, welcomeMessage, suggeste
     )
   }
 
-  // Use key to force remount when agentId changes
   return (
     <AgentChatInner
       key={agentId}

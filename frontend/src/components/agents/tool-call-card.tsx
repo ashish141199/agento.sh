@@ -1,8 +1,87 @@
 'use client'
 
+/**
+ * Tool Call Card Components
+ * Displays tool execution status in chat interfaces
+ * @module components/agents/tool-call-card
+ */
+
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Loader2, CheckCircle2, XCircle, Wrench } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, CheckCircle2, XCircle, Wrench, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/** Simple tool execution status */
+export type ToolStatus = 'pending' | 'success' | 'error'
+
+/**
+ * Maps tool name to user-friendly display name
+ * @param name - Internal tool name
+ * @returns Human-readable display name
+ */
+export function getToolDisplayName(name: string): string {
+  switch (name) {
+    case 'createOrUpdateAgent':
+      return 'Configuring agent'
+    case 'createTool':
+      return 'Creating tool'
+    case 'updateTool':
+      return 'Updating tool'
+    case 'deleteTool':
+      return 'Deleting tool'
+    default:
+      return name
+  }
+}
+
+/**
+ * Maps AI SDK tool state to simple display status
+ * @param state - AI SDK tool state string
+ * @returns Simplified status for display
+ */
+export function getToolStatus(state: string | undefined): ToolStatus {
+  switch (state) {
+    case 'output-available':
+      return 'success'
+    case 'output-error':
+      return 'error'
+    case 'input-streaming':
+    case 'input-available':
+    default:
+      return 'pending'
+  }
+}
+
+/** Props for SimpleToolCallCard component */
+interface SimpleToolCallCardProps {
+  /** The tool name to display */
+  toolName: string
+  /** Current execution status */
+  status: ToolStatus
+}
+
+/**
+ * Simple tool call indicator for inline chat display
+ * Shows tool name with a status icon (loading, success, or error)
+ */
+export function SimpleToolCallCard({ toolName, status }: SimpleToolCallCardProps) {
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
+      <Wrench className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
+      <span className="text-neutral-600 dark:text-neutral-300 flex-1">
+        {getToolDisplayName(toolName)}
+      </span>
+      {status === 'pending' && (
+        <Loader2 className="h-3 w-3 animate-spin text-neutral-400 shrink-0" />
+      )}
+      {status === 'success' && (
+        <Check className="h-3 w-3 text-green-500 shrink-0" />
+      )}
+      {status === 'error' && (
+        <X className="h-3 w-3 text-red-500 shrink-0" />
+      )}
+    </div>
+  )
+}
 
 /**
  * Tool call state types from AI SDK

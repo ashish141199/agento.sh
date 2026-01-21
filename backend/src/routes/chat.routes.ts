@@ -134,63 +134,13 @@ function createApiConnectorTool(config: ApiConnectorConfig, description: string,
 }
 
 /**
- * Create the askUser tool that forwards to the frontend for user input
- * This tool has no execute function, so it will be handled client-side
- */
-function createAskUserTool() {
-  return tool({
-    description: `Ask the user clarification questions when you need more information to proceed. Use this tool sparingly and only when you have genuine uncertainty that cannot be resolved otherwise.
-
-Guidelines for using this tool:
-- Only ask when you have a genuine doubt that affects your ability to help the user
-- Prefer MCQ (single_choice or multiple_choice) over text questions when possible
-- Keep questions clear and concise
-- Maximum 5 questions per call, minimum 1
-- Use allowOther: true for MCQ when the user might have an answer not in the options
-- Each question must have a unique id`,
-    title: 'Ask User',
-    inputSchema: z.object({
-      questions: z
-        .array(
-          z.object({
-            id: z.string().describe('Unique identifier for this question'),
-            text: z.string().describe('The question text to display to the user'),
-            type: z
-              .enum(['single_choice', 'multiple_choice', 'text'])
-              .describe('Type of question: single_choice (radio), multiple_choice (checkbox), or text (free input)'),
-            options: z
-              .array(
-                z.object({
-                  label: z.string().describe('Display label for this option'),
-                  value: z.string().describe('Value to return when selected'),
-                })
-              )
-              .optional()
-              .describe('Options for MCQ questions (required for single_choice and multiple_choice)'),
-            allowOther: z
-              .boolean()
-              .optional()
-              .describe('If true, adds an "Other" option that lets the user type a custom answer'),
-          })
-        )
-        .min(1)
-        .max(5)
-        .describe('Array of questions to ask the user (1-5 questions)'),
-    }),
-    // No execute function - this tool is handled client-side
-  })
-}
-
-/**
  * Build AI SDK tools from database tools
+ * Only includes tools that users have explicitly configured for their agent
  * @param dbTools - Tools from database
  * @returns AI SDK ToolSet for streamText
  */
 function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
   const aiTools: ToolSet = {}
-
-  // Always add the askUser tool
-  aiTools['askUser'] = createAskUserTool()
 
   for (const dbTool of dbTools) {
     // Skip disabled tools

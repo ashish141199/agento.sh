@@ -1,138 +1,79 @@
+/**
+ * Builder Routes Module
+ * Handles API endpoints for the Agent Builder assistant
+ * @module routes/builder
+ */
+
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { streamText, convertToModelMessages, tool, type UIMessage, stepCountIs } from 'ai'
+import { streamText, convertToModelMessages, type UIMessage, stepCountIs } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.middleware'
 import {
   getBuilderMessages,
-  createBuilderMessage,
-  linkBuilderMessagesToAgent,
   saveBuilderConversation,
   type UIMessage as DBUIMessage,
 } from '../db/modules/builder/builder.db'
+import { findAgentByIdWithModel } from '../db/modules/agent/agent.db'
+import { findToolsByAgentId } from '../db/modules/tool/tool.db'
 import {
-  createAgent,
-  updateAgent,
-  findAgentByIdWithModel,
-  generateSystemPrompt,
-  findAgentsByUserId,
-} from '../db/modules/agent/agent.db'
-import {
-  createTool as dbCreateTool,
-  updateTool as dbUpdateTool,
-  deleteTool as dbDeleteTool,
-  assignToolToAgent,
-  findToolsByAgentId,
-  findToolById,
-  removeToolFromAgent,
-} from '../db/modules/tool/tool.db'
-import { findAllModels, findModelByModelId } from '../db/modules/model/model.db'
-import type { BuilderMessage, MessagePart } from '../db/schema/builder-messages'
-import type { InstructionsConfig, AgentSettings } from '../db/schema/agents'
-import type { ApiConnectorConfig } from '../db/schema/tools'
-import { DEFAULT_MODEL_ID } from '../config/defaults'
+  createBuilderTools,
+  generateBuilderSystemPrompt,
+  type BuilderToolContext,
+} from '../services/builder'
 
 /**
- * Generate the builder system prompt with current agent context
+ * Verifies that an agent belongs to a user
+ * @param agentId - The agent ID to verify
+ * @param userId - The user ID to check against
+ * @returns True if agent belongs to user, false otherwise
  */
-async function generateBuilderSystemPrompt(
-  agentId: string | null,
-  userId: string
-): Promise<string> {
-  const models = await findAllModels()
-  const modelList = models.map(m => `- ${m.modelId} (${m.name})`).join('\n')
+async function verifyAgentOwnership(agentId: string, userId: string): Promise<boolean> {
+  const agent = await findAgentByIdWithModel(agentId)
+  return agent !== null && agent !== undefined && agent.userId === userId
+}
 
-  let agentStatus = ''
-  let toolsList = ''
+/**
+ * Pipes a Web Response body to a Fastify reply
+ * @param webResponse - The Web Response to pipe
+ * @param reply - The Fastify reply object
+ */
+async function pipeWebResponseToFastify(
+  webResponse: Response,
+  reply: FastifyReply
+): Promise<void> {
+  // Set headers from the Web Response
+  webResponse.headers.forEach((value, key) => {
+    reply.raw.setHeader(key, value)
+  })
+  reply.raw.statusCode = webResponse.status
 
-  if (agentId) {
-    const agent = await findAgentByIdWithModel(agentId)
-    if (agent) {
-      const tools = await findToolsByAgentId(agentId)
-      toolsList = tools.length > 0
-        ? tools.map((t, i) => `${i + 1}. ${t.name} - ${t.description || 'No description'}`).join('\n')
-        : 'No tools configured yet.'
-
-      agentStatus = `
-Status: CREATED
-Agent ID: ${agent.id}
-
-Current Configuration:
-- Name: "${agent.name}"
-- Description: "${agent.description || 'Not set'}"
-- Model: ${agent.model?.name || 'Default (auto)'}
-- Conversation History Limit: ${agent.settings?.memory?.conversationHistoryLimit || 10} messages
-
-Instructions:
-- Purpose: ${agent.instructionsConfig?.whatDoesAgentDo || 'Not set'}
-- Communication Style: ${agent.instructionsConfig?.howShouldItSpeak || 'Not set'}
-- Restrictions: ${agent.instructionsConfig?.whatShouldItNeverDo || 'Not set'}
-- Additional Context: ${agent.instructionsConfig?.anythingElse || 'Not set'}
-
-Tools:
-${toolsList}
-
-Settings:
-- Welcome Message: "${agent.settings?.chat?.welcomeMessage || 'Not set'}"
-- Suggested Prompts: ${agent.settings?.chat?.suggestedPrompts?.length ? agent.settings.chat.suggestedPrompts.map(p => `"${p}"`).join(', ') : 'None'}`
+  // Pipe the body
+  if (webResponse.body) {
+    const reader = webResponse.body.getReader()
+    const pump = async (): Promise<void> => {
+      const { done, value } = await reader.read()
+      if (done) {
+        reply.raw.end()
+        return
+      }
+      reply.raw.write(value)
+      return pump()
     }
+    await pump()
   } else {
-    agentStatus = `
-Status: NOT_CREATED
-No agent has been created yet. Use the createOrUpdateAgent tool with at least a name to create one.`
+    reply.raw.end()
   }
+}
 
-  return `You are the Agent Builder for Autive - an AI assistant that helps users create custom AI agents through conversation.
-
-## About Autive
-Autive is a platform where users create, customize, and deploy AI agents. Each agent consists of:
-
-**Identity**
-- Name: The agent's display name
-- Description: A brief summary of what the agent does
-
-**Instructions** (defines the agent's behavior through 4 key questions)
-- What does this agent do? - Core purpose and responsibilities
-- How should it speak? - Tone, personality, communication style
-- What should it never do? - Restrictions and boundaries
-- Anything else? - Additional context or domain knowledge
-
-**Tools** (extend capabilities)
-- API Connectors: Connect to external APIs and services to fetch data or perform actions
-
-**Settings**
-- Model: Which AI model powers the agent
-- Memory: How many previous messages to remember (conversation history limit)
-- Welcome Message: First message shown to users when they start a conversation
-- Suggested Prompts: Quick-click options shown to help users get started
-
-## Your Approach
-1. **Understand first**: Ask questions to understand what the user wants to build. Don't rush to create.
-2. **Use the askUser tool**: When you need to gather information, use the askUser tool to present clear choices. This provides a better user experience than plain text questions.
-3. **Suggest and explain**: When you have enough info, explain what you're configuring and why.
-4. **Iterate**: After initial creation, offer to refine and improve.
-
-## Guidelines
-- **KEEP RESPONSES SHORT AND CONCISE** - Use 1-3 sentences max for most responses. Avoid long explanations.
-- Be conversational and helpful, but brief
-- **USE THE askUser TOOL** when you need to ask clarification questions. Prefer multiple-choice over text questions when possible. This makes it easier for users to respond.
-- When using tools, give a brief confirmation (1 line) of what was done
-- For complex agents, gather requirements before using tools
-- For simple requests, you can create with minimal questions
-- Suggest best practices briefly when relevant
-- If the user mentions needing external data/APIs, ask about the specific endpoints and authentication
-
-## Available Models
-${modelList}
-
-## Current Agent Status
-${agentStatus}
-
-## Important Notes
-- When creating tools, make sure to gather all required information: URL, HTTP method, authentication details, and any custom headers
-- Always set appropriate restrictions in "whatShouldItNeverDo" to keep the agent safe
-- Suggest a welcome message that matches the agent's personality
-- Recommend 2-4 suggested prompts that showcase the agent's main capabilities`
+/**
+ * Sets CORS headers on the reply
+ * @param request - The Fastify request
+ * @param reply - The Fastify reply
+ */
+function setCorsHeaders(request: FastifyRequest, reply: FastifyReply): void {
+  const origin = request.headers.origin || process.env.FRONTEND_URL || 'http://localhost:3000'
+  reply.raw.setHeader('Access-Control-Allow-Origin', origin)
+  reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
 }
 
 /**
@@ -148,576 +89,137 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
    * Get builder messages for an agent or new agent creation
    * GET /builder/messages?agentId=xxx
    */
-  fastify.get('/builder/messages', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.userId!
-    const { agentId } = request.query as { agentId?: string }
+  fastify.get(
+    '/builder/messages',
+    { preHandler: authMiddleware },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!
+      const { agentId } = request.query as { agentId?: string }
 
-    // Verify agent belongs to user if agentId provided
-    if (agentId) {
-      const agent = await findAgentByIdWithModel(agentId)
-      if (!agent || agent.userId !== userId) {
+      // Verify agent belongs to user if agentId provided
+      if (agentId && !(await verifyAgentOwnership(agentId, userId))) {
         return reply.status(403).send({
           success: false,
           message: 'Forbidden',
         })
       }
+
+      const messages = await getBuilderMessages(userId, agentId)
+
+      return reply.send({
+        success: true,
+        message: 'Messages retrieved',
+        data: {
+          messages,
+          agentId: agentId || null,
+        },
+      })
     }
-
-    const messages = await getBuilderMessages(userId, agentId)
-
-    return reply.send({
-      success: true,
-      message: 'Messages retrieved',
-      data: {
-        messages,
-        agentId: agentId || null,
-      },
-    })
-  })
+  )
 
   /**
    * Chat with the builder agent (streaming)
    * POST /builder/chat
    */
-  fastify.post('/builder/chat', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.userId!
-    const { messages, agentId } = request.body as { messages: UIMessage[]; agentId?: string | null }
+  fastify.post(
+    '/builder/chat',
+    { preHandler: authMiddleware },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!
+      const { messages, agentId } = request.body as {
+        messages: UIMessage[]
+        agentId?: string | null
+      }
 
-    // Track the current agentId (may be updated by tool calls)
-    let currentAgentId = agentId || null
+      // Create mutable context for tools
+      const context: BuilderToolContext = {
+        userId,
+        currentAgentId: agentId || null,
+      }
 
-    // Verify agent belongs to user if agentId provided
-    if (currentAgentId) {
-      const agent = await findAgentByIdWithModel(currentAgentId)
-      if (!agent || agent.userId !== userId) {
+      // Verify agent belongs to user if agentId provided
+      if (context.currentAgentId && !(await verifyAgentOwnership(context.currentAgentId, userId))) {
         return reply.status(403).send({
           success: false,
           message: 'Forbidden',
         })
       }
+
+      // Generate system prompt with current context
+      const systemPrompt = await generateBuilderSystemPrompt(context.currentAgentId, userId)
+
+      // Set CORS headers
+      setCorsHeaders(request, reply)
+
+      // Create builder tools with context
+      const builderTools = createBuilderTools(context)
+
+      // Stream the response
+      const result = streamText({
+        model: openrouter.chat('anthropic/claude-sonnet-4'),
+        system: systemPrompt,
+        messages: await convertToModelMessages(messages),
+        tools: builderTools,
+        stopWhen: stepCountIs(5),
+      })
+
+      // Create the UI message stream response with proper message persistence
+      const webResponse = result.toUIMessageStreamResponse({
+        originalMessages: messages,
+        onFinish: async ({ messages: allMessages }) => {
+          // Save the complete conversation state
+          // This includes all messages with their parts in the correct order
+          // and includes tool outputs from client-side tools like askUser
+          await saveBuilderConversation(
+            userId,
+            context.currentAgentId,
+            allMessages as DBUIMessage[]
+          )
+        },
+      })
+
+      // Pipe the Web Response to Fastify
+      await pipeWebResponseToFastify(webResponse, reply)
     }
-
-    // Note: We don't save messages here individually anymore.
-    // The complete conversation is saved in onFinish of toUIMessageStreamResponse.
-    // This ensures proper message ordering and includes tool outputs from client-side tools.
-
-    // Generate system prompt with current context
-    const systemPrompt = await generateBuilderSystemPrompt(currentAgentId, userId)
-
-    // Set CORS headers
-    const origin = request.headers.origin || process.env.FRONTEND_URL || 'http://localhost:3000'
-    reply.raw.setHeader('Access-Control-Allow-Origin', origin)
-    reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
-
-    // Define schemas for tools
-    const createOrUpdateAgentSchema = z.object({
-      name: z.string().min(1).max(100).optional().describe('The agent name (required for first creation)'),
-      description: z.string().max(500).optional().describe('Brief description of what the agent does'),
-      whatDoesAgentDo: z.string().max(2000).optional().describe('The agent\'s core purpose and main responsibilities'),
-      howShouldItSpeak: z.string().max(2000).optional().describe('The agent\'s tone, personality, and communication style'),
-      whatShouldItNeverDo: z.string().max(2000).optional().describe('Restrictions, boundaries, and things the agent must avoid'),
-      anythingElse: z.string().max(2000).optional().describe('Additional context, special instructions, or domain knowledge'),
-      modelId: z.string().optional().describe('The AI model identifier to use (e.g., "openrouter/auto")'),
-      conversationHistoryLimit: z.number().min(1).max(100).optional().describe('Number of previous messages to include (default 10)'),
-      welcomeMessage: z.string().max(500).optional().describe('Initial message shown when users start a conversation'),
-      suggestedPrompts: z.array(z.string().max(200)).max(10).optional().describe('Quick-click prompts shown to help users get started'),
-    })
-
-    // Define builder tools
-    const builderTools = {
-      askUser: tool({
-        description: `Ask the user clarification questions when you need more information to proceed. Use this tool to gather requirements before creating or configuring the agent.
-
-Guidelines:
-- Use when you need to understand the user's specific needs
-- Prefer MCQ (single_choice or multiple_choice) over text questions when possible
-- Keep questions clear and concise
-- Maximum 5 questions per call, minimum 1
-- Use allowOther: true for MCQ when the user might have an answer not in your options
-- Each question must have a unique id`,
-        title: 'Ask User',
-        inputSchema: z.object({
-          questions: z
-            .array(
-              z.object({
-                id: z.string().describe('Unique identifier for this question'),
-                text: z.string().describe('The question text to display to the user'),
-                type: z
-                  .enum(['single_choice', 'multiple_choice', 'text'])
-                  .describe('Type of question: single_choice (radio), multiple_choice (checkbox), or text (free input)'),
-                options: z
-                  .array(
-                    z.object({
-                      label: z.string().describe('Display label for this option'),
-                      value: z.string().describe('Value to return when selected'),
-                    })
-                  )
-                  .optional()
-                  .describe('Options for MCQ questions (required for single_choice and multiple_choice)'),
-                allowOther: z
-                  .boolean()
-                  .optional()
-                  .describe('If true, adds an "Other" option that lets the user type a custom answer'),
-              })
-            )
-            .min(1)
-            .max(5)
-            .describe('Array of questions to ask the user (1-5 questions)'),
-        }),
-        // No execute function - this tool is handled client-side
-      }),
-
-      createOrUpdateAgent: tool({
-        description: 'Creates a new agent or updates the current agent configuration. Use this after gathering enough information from the user. All fields are optional except name is required for initial creation.',
-        inputSchema: createOrUpdateAgentSchema,
-        execute: async (params: z.infer<typeof createOrUpdateAgentSchema>) => {
-          try {
-            let agentIdToUse = currentAgentId
-            let action: 'created' | 'updated' = 'updated'
-
-            if (!agentIdToUse) {
-              // Create new agent
-              if (!params.name) {
-                return {
-                  success: false,
-                  error: 'Agent name is required for initial creation',
-                }
-              }
-
-              // Find model by modelId string if provided
-              let modelUuid: string | undefined
-              if (params.modelId) {
-                const model = await findModelByModelId(params.modelId)
-                modelUuid = model?.id
-              }
-
-              const newAgent = await createAgent({
-                userId,
-                name: params.name,
-                description: params.description,
-                modelId: modelUuid,
-              })
-
-              agentIdToUse = newAgent.id
-              currentAgentId = newAgent.id
-              action = 'created'
-
-              // Link orphan messages to the new agent
-              await linkBuilderMessagesToAgent(userId, agentIdToUse)
-            }
-
-            // Build update data
-            const instructionsConfig: Partial<InstructionsConfig> = {}
-            if (params.whatDoesAgentDo !== undefined) instructionsConfig.whatDoesAgentDo = params.whatDoesAgentDo
-            if (params.howShouldItSpeak !== undefined) instructionsConfig.howShouldItSpeak = params.howShouldItSpeak
-            if (params.whatShouldItNeverDo !== undefined) instructionsConfig.whatShouldItNeverDo = params.whatShouldItNeverDo
-            if (params.anythingElse !== undefined) instructionsConfig.anythingElse = params.anythingElse
-
-            const settings: Partial<AgentSettings> = {}
-            if (params.conversationHistoryLimit !== undefined) {
-              settings.memory = { conversationHistoryLimit: params.conversationHistoryLimit }
-            }
-            if (params.welcomeMessage !== undefined || params.suggestedPrompts !== undefined) {
-              settings.chat = {
-                welcomeMessage: params.welcomeMessage || '',
-                suggestedPrompts: params.suggestedPrompts || [],
-              }
-            }
-
-            // Find model UUID if modelId provided
-            let modelUuid: string | null | undefined
-            if (params.modelId !== undefined) {
-              if (params.modelId) {
-                const model = await findModelByModelId(params.modelId)
-                modelUuid = model?.id
-              } else {
-                modelUuid = null
-              }
-            }
-
-            // Prepare update payload
-            const updatePayload: Record<string, unknown> = {}
-            if (params.name !== undefined) updatePayload.name = params.name
-            if (params.description !== undefined) updatePayload.description = params.description
-            if (modelUuid !== undefined) updatePayload.modelId = modelUuid
-
-            // Get existing agent to merge configs
-            const existingAgent = await findAgentByIdWithModel(agentIdToUse)
-            if (existingAgent) {
-              // Merge instructions config
-              if (Object.keys(instructionsConfig).length > 0) {
-                updatePayload.instructionsConfig = {
-                  ...existingAgent.instructionsConfig,
-                  ...instructionsConfig,
-                }
-              }
-
-              // Merge settings
-              if (Object.keys(settings).length > 0) {
-                updatePayload.settings = {
-                  memory: {
-                    ...existingAgent.settings?.memory,
-                    ...settings.memory,
-                  },
-                  chat: {
-                    ...existingAgent.settings?.chat,
-                    ...settings.chat,
-                  },
-                }
-              }
-
-              // Generate system prompt if any relevant fields changed
-              if (updatePayload.name || updatePayload.description !== undefined || updatePayload.instructionsConfig) {
-                updatePayload.systemPrompt = generateSystemPrompt(
-                  (updatePayload.name as string) || existingAgent.name,
-                  (updatePayload.description as string | null) ?? existingAgent.description,
-                  (updatePayload.instructionsConfig as InstructionsConfig) || existingAgent.instructionsConfig
-                )
-              }
-            }
-
-            // Update agent if we have anything to update
-            if (Object.keys(updatePayload).length > 0) {
-              await updateAgent(agentIdToUse, updatePayload)
-            }
-
-            // Get updated agent
-            const updatedAgent = await findAgentByIdWithModel(agentIdToUse)
-
-            return {
-              success: true,
-              action,
-              agentId: agentIdToUse,
-              agent: {
-                id: updatedAgent?.id,
-                name: updatedAgent?.name,
-                description: updatedAgent?.description,
-                model: updatedAgent?.model?.name || 'Default',
-                instructionsConfigured: !!(
-                  updatedAgent?.instructionsConfig?.whatDoesAgentDo ||
-                  updatedAgent?.instructionsConfig?.howShouldItSpeak ||
-                  updatedAgent?.instructionsConfig?.whatShouldItNeverDo ||
-                  updatedAgent?.instructionsConfig?.anythingElse
-                ),
-                welcomeMessage: updatedAgent?.settings?.chat?.welcomeMessage || null,
-                suggestedPrompts: updatedAgent?.settings?.chat?.suggestedPrompts || [],
-              },
-            }
-          } catch (error) {
-            return {
-              success: false,
-              error: error instanceof Error ? error.message : 'Failed to create/update agent',
-            }
-          }
-        },
-      }),
-
-      createTool: tool({
-        description: 'Creates a new API connector tool for the agent. Tools allow the agent to interact with external APIs.',
-        inputSchema: z.object({
-          name: z.string().min(1).max(100).describe('Tool name (used as function name, alphanumeric and underscores)'),
-          description: z.string().max(500).optional().describe('Description of what this tool does'),
-          url: z.string().url().describe('The API endpoint URL'),
-          method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).describe('HTTP method'),
-          authenticationType: z.enum(['none', 'bearer', 'api_key', 'basic']).optional().describe('Authentication type'),
-          authToken: z.string().optional().describe('Bearer token or API key value'),
-          authUsername: z.string().optional().describe('Username for basic auth'),
-          authPassword: z.string().optional().describe('Password for basic auth'),
-          headers: z.array(z.object({
-            key: z.string(),
-            value: z.string(),
-          })).optional().describe('Custom headers to include'),
-          body: z.string().optional().describe('Request body template for POST/PUT/PATCH'),
-        }),
-        execute: async (params: {
-          name: string
-          description?: string
-          url: string
-          method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-          authenticationType?: 'none' | 'bearer' | 'api_key' | 'basic'
-          authToken?: string
-          authUsername?: string
-          authPassword?: string
-          headers?: { key: string; value: string }[]
-          body?: string
-        }) => {
-          try {
-            if (!currentAgentId) {
-              return {
-                success: false,
-                error: 'Please create the agent first before adding tools',
-              }
-            }
-
-            // Build API config
-            const apiConfig: ApiConnectorConfig = {
-              url: params.url,
-              method: params.method,
-              headers: params.headers,
-              body: params.body,
-            }
-
-            // Add authentication if provided
-            if (params.authenticationType && params.authenticationType !== 'none') {
-              apiConfig.authentication = {
-                type: params.authenticationType,
-                token: params.authToken,
-                apiKey: params.authToken, // Use same field for API key
-                username: params.authUsername,
-                password: params.authPassword,
-              }
-            }
-
-            // Create the tool
-            const newTool = await dbCreateTool({
-              userId,
-              type: 'api_connector',
-              name: params.name,
-              description: params.description,
-              config: apiConfig,
-              enabled: true,
-            })
-
-            // Assign to agent
-            await assignToolToAgent({
-              agentId: currentAgentId,
-              toolId: newTool.id,
-              enabled: true,
-            })
-
-            return {
-              success: true,
-              toolId: newTool.id,
-              tool: {
-                id: newTool.id,
-                name: newTool.name,
-                description: newTool.description,
-                type: 'api_connector',
-                url: params.url,
-                method: params.method,
-              },
-            }
-          } catch (error) {
-            return {
-              success: false,
-              error: error instanceof Error ? error.message : 'Failed to create tool',
-            }
-          }
-        },
-      }),
-
-      updateTool: tool({
-        description: 'Updates an existing tool configuration',
-        inputSchema: z.object({
-          toolId: z.string().uuid().describe('The tool ID to update'),
-          name: z.string().min(1).max(100).optional().describe('New tool name'),
-          description: z.string().max(500).optional().describe('New description'),
-          url: z.string().url().optional().describe('New API endpoint URL'),
-          method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional().describe('New HTTP method'),
-          authenticationType: z.enum(['none', 'bearer', 'api_key', 'basic']).optional().describe('New authentication type'),
-          authToken: z.string().optional().describe('New bearer token or API key'),
-          authUsername: z.string().optional().describe('New username for basic auth'),
-          authPassword: z.string().optional().describe('New password for basic auth'),
-          headers: z.array(z.object({
-            key: z.string(),
-            value: z.string(),
-          })).optional().describe('New custom headers'),
-          body: z.string().optional().describe('New request body template'),
-        }),
-        execute: async (params: {
-          toolId: string
-          name?: string
-          description?: string
-          url?: string
-          method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-          authenticationType?: 'none' | 'bearer' | 'api_key' | 'basic'
-          authToken?: string
-          authUsername?: string
-          authPassword?: string
-          headers?: { key: string; value: string }[]
-          body?: string
-        }) => {
-          try {
-            const existingTool = await findToolById(params.toolId)
-            if (!existingTool) {
-              return { success: false, error: 'Tool not found' }
-            }
-
-            if (existingTool.userId !== userId) {
-              return { success: false, error: 'Not authorized to update this tool' }
-            }
-
-            const existingConfig = existingTool.config as ApiConnectorConfig
-            const updateData: Record<string, unknown> = {}
-
-            if (params.name) updateData.name = params.name
-            if (params.description !== undefined) updateData.description = params.description
-
-            // Build updated config
-            const newConfig: ApiConnectorConfig = {
-              url: params.url || existingConfig.url,
-              method: params.method || existingConfig.method,
-              headers: params.headers !== undefined ? params.headers : existingConfig.headers,
-              body: params.body !== undefined ? params.body : existingConfig.body,
-            }
-
-            if (params.authenticationType !== undefined) {
-              if (params.authenticationType === 'none') {
-                newConfig.authentication = undefined
-              } else {
-                newConfig.authentication = {
-                  type: params.authenticationType,
-                  token: params.authToken,
-                  apiKey: params.authToken,
-                  username: params.authUsername,
-                  password: params.authPassword,
-                }
-              }
-            } else {
-              newConfig.authentication = existingConfig.authentication
-            }
-
-            updateData.config = newConfig
-
-            const updatedTool = await dbUpdateTool(params.toolId, updateData)
-
-            return {
-              success: true,
-              tool: {
-                id: updatedTool?.id,
-                name: updatedTool?.name,
-                description: updatedTool?.description,
-              },
-            }
-          } catch (error) {
-            return {
-              success: false,
-              error: error instanceof Error ? error.message : 'Failed to update tool',
-            }
-          }
-        },
-      }),
-
-      deleteTool: tool({
-        description: 'Removes a tool from the agent',
-        inputSchema: z.object({
-          toolId: z.string().uuid().describe('The tool ID to delete'),
-        }),
-        execute: async (params: { toolId: string }) => {
-          try {
-            const existingTool = await findToolById(params.toolId)
-            if (!existingTool) {
-              return { success: false, error: 'Tool not found' }
-            }
-
-            if (existingTool.userId !== userId) {
-              return { success: false, error: 'Not authorized to delete this tool' }
-            }
-
-            // Remove from agent first
-            if (currentAgentId) {
-              await removeToolFromAgent(currentAgentId, params.toolId)
-            }
-
-            // Delete the tool
-            await dbDeleteTool(params.toolId)
-
-            return {
-              success: true,
-              message: `Tool "${existingTool.name}" has been deleted`,
-            }
-          } catch (error) {
-            return {
-              success: false,
-              error: error instanceof Error ? error.message : 'Failed to delete tool',
-            }
-          }
-        },
-      }),
-    }
-
-    // Stream the response using toUIMessageStreamResponse for proper message persistence
-    const result = streamText({
-      model: openrouter.chat('anthropic/claude-sonnet-4'),
-      system: systemPrompt,
-      messages: await convertToModelMessages(messages),
-      tools: builderTools,
-      stopWhen: stepCountIs(5),
-    })
-
-    // Create the UI message stream response with proper message persistence
-    const webResponse = result.toUIMessageStreamResponse({
-      originalMessages: messages,
-      onFinish: async ({ messages: allMessages }) => {
-        // Save the complete conversation state
-        // This includes all messages with their parts in the correct order
-        // and includes tool outputs from client-side tools like askUser
-        await saveBuilderConversation(
-          userId,
-          currentAgentId,
-          allMessages as DBUIMessage[]
-        )
-      },
-    })
-
-    // Pipe the Web Response to Fastify's raw response
-    // Set headers from the Web Response
-    webResponse.headers.forEach((value, key) => {
-      reply.raw.setHeader(key, value)
-    })
-    reply.raw.statusCode = webResponse.status
-
-    // Pipe the body
-    if (webResponse.body) {
-      const reader = webResponse.body.getReader()
-      const pump = async (): Promise<void> => {
-        const { done, value } = await reader.read()
-        if (done) {
-          reply.raw.end()
-          return
-        }
-        reply.raw.write(value)
-        return pump()
-      }
-      await pump()
-    } else {
-      reply.raw.end()
-    }
-  })
+  )
 
   /**
    * Get current agent data for builder context
    * GET /builder/agent?agentId=xxx
    */
-  fastify.get('/builder/agent', { preHandler: authMiddleware }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const userId = request.userId!
-    const { agentId } = request.query as { agentId?: string }
+  fastify.get(
+    '/builder/agent',
+    { preHandler: authMiddleware },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!
+      const { agentId } = request.query as { agentId?: string }
 
-    if (!agentId) {
+      if (!agentId) {
+        return reply.send({
+          success: true,
+          message: 'No agent specified',
+          data: { agent: null },
+        })
+      }
+
+      if (!(await verifyAgentOwnership(agentId, userId))) {
+        return reply.status(403).send({
+          success: false,
+          message: 'Forbidden',
+        })
+      }
+
+      const agent = await findAgentByIdWithModel(agentId)
+      const tools = await findToolsByAgentId(agentId)
+
       return reply.send({
         success: true,
-        message: 'No agent specified',
-        data: { agent: null },
+        message: 'Agent retrieved',
+        data: {
+          agent,
+          tools,
+        },
       })
     }
-
-    const agent = await findAgentByIdWithModel(agentId)
-    if (!agent || agent.userId !== userId) {
-      return reply.status(403).send({
-        success: false,
-        message: 'Forbidden',
-      })
-    }
-
-    const tools = await findToolsByAgentId(agentId)
-
-    return reply.send({
-      success: true,
-      message: 'Agent retrieved',
-      data: {
-        agent,
-        tools,
-      },
-    })
-  })
+  )
 }

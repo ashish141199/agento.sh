@@ -1,141 +1,77 @@
 'use client'
 
+/**
+ * Builder Sidebar Component
+ * AI-assisted agent creation chat interface
+ * @module components/agents/builder-sidebar
+ */
+
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Send, Loader2, X, Sparkles, Bot, Wrench, Check, GripVertical } from 'lucide-react'
+import { Send, Loader2, X, Sparkles, Bot, GripVertical } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
-import { refreshAccessToken, handleAuthFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { builderService, type BuilderMessage } from '@/services/builder.service'
 import type { Agent } from '@/services/agent.service'
-import {
-  AskUserCard,
-  AnsweredSummary,
-  type AskUserInput,
-  type AskUserResponse,
-} from './ask-user-card'
+import { MessagePartsRenderer } from './message-parts-renderer'
+import { useAskUser } from '@/hooks/use-ask-user'
+import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
+import { useResizablePanel } from '@/hooks/use-resizable-panel'
+import type { AskUserInput, AskUserResponse } from '@/types/ask-user.types'
 
+/** Props for BuilderSidebar component */
 interface BuilderSidebarProps {
+  /** Whether the sidebar is open */
   isOpen: boolean
+  /** Callback when sidebar is closed */
   onClose: () => void
+  /** Callback when agent data is updated */
   onAgentUpdate: (agent: Agent) => void
+  /** ID of existing agent being edited (null for new agent) */
   agentId?: string | null
+  /** Initial message to send automatically */
   initialMessage?: string
 }
 
-/**
- * Get display name for a tool
- */
-function getToolDisplayName(name: string): string {
-  switch (name) {
-    case 'createOrUpdateAgent':
-      return 'Configuring agent'
-    case 'createTool':
-      return 'Creating tool'
-    case 'updateTool':
-      return 'Updating tool'
-    case 'deleteTool':
-      return 'Deleting tool'
-    default:
-      return name
-  }
+/** Props for BuilderChatInner component */
+interface BuilderChatInnerProps {
+  /** Current agent ID (null for new agent) */
+  agentId: string | null
+  /** Messages loaded from the server */
+  initialMessages: BuilderMessage[]
+  /** Callback when agent is updated */
+  onAgentUpdate: (agent: Agent) => void
+  /** Initial prompt to auto-send */
+  initialPrompt?: string
 }
 
 /**
- * Get tool status from AI SDK state
- */
-function getToolStatus(state: string | undefined): 'pending' | 'success' | 'error' {
-  switch (state) {
-    case 'output-available':
-      return 'success'
-    case 'output-error':
-      return 'error'
-    case 'input-streaming':
-    case 'input-available':
-    default:
-      return 'pending'
-  }
-}
-
-/**
- * Tool call card component for displaying tool execution in chat
- */
-function ToolCallCard({ toolName, status }: { toolName: string; status: 'pending' | 'success' | 'error' }) {
-  return (
-    <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
-      <Wrench className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
-      <span className="text-neutral-600 dark:text-neutral-300 flex-1">{getToolDisplayName(toolName)}</span>
-      {status === 'pending' && (
-        <Loader2 className="h-3 w-3 animate-spin text-neutral-400 shrink-0" />
-      )}
-      {status === 'success' && (
-        <Check className="h-3 w-3 text-green-500 shrink-0" />
-      )}
-      {status === 'error' && (
-        <X className="h-3 w-3 text-red-500 shrink-0" />
-      )}
-    </div>
-  )
-}
-
-/**
- * Inner component that handles the chat
+ * Inner component that handles the chat functionality
  */
 function BuilderChatInner({
   agentId,
   initialMessages,
   onAgentUpdate,
   initialPrompt,
-}: {
-  agentId: string | null
-  initialMessages: BuilderMessage[]
-  onAgentUpdate: (agent: Agent) => void
-  initialPrompt?: string
-}) {
+}: BuilderChatInnerProps) {
   const [input, setInput] = useState('')
   const hasAutoSentRef = useRef(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasPolledRef = useRef(false)
-  const [currentAgentId, setCurrentAgentId] = useState<string | null>(agentId)
+  const [currentAgentId] = useState<string | null>(agentId)
 
-  // Custom fetch that handles 401 errors with token refresh
-  const fetchWithAuth = useCallback(async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const currentToken = useAuthStore.getState().accessToken
-
-    const headers = new Headers(init?.headers)
-    headers.set('Authorization', `Bearer ${currentToken}`)
-
-    const response = await fetch(url, {
-      ...init,
-      headers,
-      credentials: 'include',
-    })
-
-    if (response.status === 401) {
-      const newToken = await refreshAccessToken()
-
-      if (newToken) {
-        const retryHeaders = new Headers(init?.headers)
-        retryHeaders.set('Authorization', `Bearer ${newToken}`)
-
-        return fetch(url, {
-          ...init,
-          headers: retryHeaders,
-          credentials: 'include',
-        })
-      } else {
-        handleAuthFailure()
-        throw new Error('Session expired. Please log in again.')
-      }
-    }
-
-    return response
-  }, [])
+  // Use custom hooks
+  const fetchWithAuth = useFetchWithAuth()
+  const {
+    submittedResponses,
+    submittingToolId,
+    handleAskUserSubmit: baseHandleAskUserSubmit,
+    hasPendingAskUser,
+  } = useAskUser()
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
@@ -152,39 +88,20 @@ function BuilderChatInner({
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
-  // Track submitted askUser responses by toolCallId
-  const [submittedResponses, setSubmittedResponses] = useState<
-    Record<string, { input: AskUserInput; response: AskUserResponse }>
-  >({})
-  const [submittingToolId, setSubmittingToolId] = useState<string | null>(null)
-
   /**
    * Handle askUser tool response submission
    */
   const handleAskUserSubmit = useCallback(
     async (toolCallId: string, askInput: AskUserInput, response: AskUserResponse) => {
-      setSubmittingToolId(toolCallId)
-      try {
-        // Store the response for display
-        setSubmittedResponses((prev) => ({
-          ...prev,
-          [toolCallId]: { input: askInput, response },
-        }))
-
-        // Send the tool output back to the agent
-        await addToolOutput({
-          toolCallId,
-          tool: 'askUser',
-          output: response,
-        })
-
-        // Continue the conversation
-        sendMessage()
-      } finally {
-        setSubmittingToolId(null)
-      }
+      await baseHandleAskUserSubmit(
+        toolCallId,
+        askInput,
+        response,
+        addToolOutput,
+        sendMessage
+      )
     },
-    [addToolOutput, sendMessage]
+    [baseHandleAskUserSubmit, addToolOutput, sendMessage]
   )
 
   // Combine initial messages with chat messages
@@ -202,24 +119,10 @@ function BuilderChatInner({
   }, [initialMessages, chatMessages])
 
   // Check if there's a pending askUser tool awaiting response
-  const hasPendingAskUser = useMemo(() => {
-    return chatMessages.some((m) =>
-      m.parts?.some((part) => {
-        if (part.type.startsWith('tool-')) {
-          const toolPart = part as { state?: string; type: string; toolCallId?: string }
-          const toolName = part.type.replace('tool-', '')
-          const toolCallId = toolPart.toolCallId
-          return (
-            toolName === 'askUser' &&
-            toolPart.state === 'input-available' &&
-            toolCallId &&
-            !submittedResponses[toolCallId]
-          )
-        }
-        return false
-      })
-    )
-  }, [chatMessages, submittedResponses])
+  const pendingAskUser = useMemo(
+    () => hasPendingAskUser(chatMessages),
+    [chatMessages, hasPendingAskUser]
+  )
 
   // Poll for agent updates when assistant responds with tool calls
   useEffect(() => {
@@ -308,90 +211,15 @@ function BuilderChatInner({
                   : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
               )}
             >
-              {message.parts?.map((part, index) => {
-                if (part.type === 'text') {
-                  const textContent = (part as { text: string }).text
-                  return message.role === 'user' ? (
-                    <p key={index} className="whitespace-pre-wrap">{textContent}</p>
-                  ) : (
-                    <div key={index} className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                      <ReactMarkdown>{textContent}</ReactMarkdown>
-                    </div>
-                  )
-                }
-                // Handle tool parts (format: tool-{toolName})
-                if (part.type.startsWith('tool-')) {
-                  const toolPart = part as { state?: string; type: string; toolCallId?: string; input?: unknown; output?: unknown }
-                  const toolName = part.type.replace('tool-', '')
-                  const toolCallId = toolPart.toolCallId || ''
-
-                  // Special handling for askUser tool
-                  if (toolName === 'askUser') {
-                    const askInput = toolPart.input as AskUserInput | undefined
-                    const submittedData = submittedResponses[toolCallId]
-                    const isWaitingForInput =
-                      toolPart.state === 'input-available' && !submittedData
-
-                    // Show AskUserCard if waiting for input
-                    if (isWaitingForInput && askInput?.questions) {
-                      return (
-                        <AskUserCard
-                          key={index}
-                          input={askInput}
-                          onSubmit={(response) =>
-                            handleAskUserSubmit(toolCallId, askInput, response)
-                          }
-                          isSubmitting={submittingToolId === toolCallId}
-                        />
-                      )
-                    }
-
-                    // Show summary if already submitted
-                    if (submittedData) {
-                      return (
-                        <AnsweredSummary
-                          key={index}
-                          input={submittedData.input}
-                          response={submittedData.response}
-                        />
-                      )
-                    }
-
-                    // Show summary from tool output if available
-                    if (toolPart.state === 'output-available' && toolPart.output) {
-                      const outputResponse = toolPart.output as AskUserResponse
-                      if (askInput?.questions) {
-                        return (
-                          <AnsweredSummary
-                            key={index}
-                            input={askInput}
-                            response={outputResponse}
-                          />
-                        )
-                      }
-                    }
-
-                    // Fallback to regular tool card for other states (e.g., input-streaming)
-                    return (
-                      <ToolCallCard
-                        key={index}
-                        toolName="Asking questions..."
-                        status={getToolStatus(toolPart.state)}
-                      />
-                    )
-                  }
-
-                  // Regular tool call handling
-                  return (
-                    <ToolCallCard
-                      key={index}
-                      toolName={toolName}
-                      status={getToolStatus(toolPart.state)}
-                    />
-                  )
-                }
-                return null
-              })}
+              {message.parts && (
+                <MessagePartsRenderer
+                  parts={message.parts as Array<{ type: string; text?: string; state?: string; toolCallId?: string; input?: unknown; output?: unknown }>}
+                  role={message.role as 'user' | 'assistant'}
+                  submittedResponses={submittedResponses}
+                  submittingToolId={submittingToolId}
+                  onAskUserSubmit={handleAskUserSubmit}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -416,7 +244,7 @@ function BuilderChatInner({
             placeholder="Describe your agent..."
             className="flex-1 text-sm"
           />
-          <Button type="submit" disabled={!input.trim() || isLoading || hasPendingAskUser} size="icon" className="shrink-0">
+          <Button type="submit" disabled={!input.trim() || isLoading || pendingAskUser} size="icon" className="shrink-0">
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -442,39 +270,15 @@ export function BuilderSidebar({
   const [isInitializing, setIsInitializing] = useState(false)
   const [initialMessages, setInitialMessages] = useState<BuilderMessage[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [width, setWidth] = useState(380)
   const [isReady, setIsReady] = useState(false)
   const initRef = useRef(false)
-  const isResizing = useRef(false)
 
-  // Handle resize
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isResizing.current = true
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-
-    const startX = e.clientX
-    const startWidth = width
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing.current) return
-      const delta = startX - e.clientX
-      const newWidth = Math.min(Math.max(startWidth + delta, 320), 600)
-      setWidth(newWidth)
-    }
-
-    const handleMouseUp = () => {
-      isResizing.current = false
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [width])
+  // Use resizable panel hook
+  const { width, handleMouseDown } = useResizablePanel({
+    initialWidth: 380,
+    minWidth: 320,
+    maxWidth: 500,
+  })
 
   // Load messages when sidebar opens
   useEffect(() => {

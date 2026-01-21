@@ -1,4 +1,10 @@
-import { eq, and, isNull, desc, inArray } from 'drizzle-orm'
+/**
+ * Builder Messages Database Module
+ * Handles persistence of Agent Builder chat messages
+ * @module db/modules/builder/builder.db
+ */
+
+import { eq, and, isNull } from 'drizzle-orm'
 import { db } from '../../index'
 import {
   builderMessages,
@@ -9,6 +15,7 @@ import {
 
 /**
  * UIMessage structure from Vercel AI SDK
+ * Represents a message in the chat interface
  */
 export interface UIMessage {
   id: string
