@@ -61,12 +61,15 @@ function BuilderChatInner({
   agentId,
   initialMessages,
   onAgentUpdate,
+  initialPrompt,
 }: {
   agentId: string | null
   initialMessages: BuilderMessage[]
   onAgentUpdate: (agent: Agent) => void
+  initialPrompt?: string
 }) {
   const [input, setInput] = useState('')
+  const hasAutoSentRef = useRef(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasPolledRef = useRef(false)
@@ -172,6 +175,14 @@ function BuilderChatInner({
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  // Auto-send initial prompt if provided
+  useEffect(() => {
+    if (initialPrompt && !hasAutoSentRef.current && !isLoading) {
+      hasAutoSentRef.current = true
+      sendMessage({ text: initialPrompt })
+    }
+  }, [initialPrompt, isLoading, sendMessage])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -436,6 +447,7 @@ export function BuilderSidebar({
             agentId={agentId || null}
             initialMessages={initialMessages}
             onAgentUpdate={onAgentUpdate}
+            initialPrompt={initialMessage}
           />
         )}
       </div>

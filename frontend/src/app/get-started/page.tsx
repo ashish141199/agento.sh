@@ -65,7 +65,7 @@ export default function GetStartedPage() {
           setStep('name')
         } else {
           setAuth(user, token, false)
-          router.push('/')
+          router.push('/dashboard')
         }
       }
     } catch (err) {
@@ -88,7 +88,7 @@ export default function GetStartedPage() {
 
       if (response.data) {
         setAuth(response.data.user, accessToken, false)
-        router.push('/')
+        router.push('/dashboard')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete signup')
@@ -115,7 +115,7 @@ export default function GetStartedPage() {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <Logo />
+          <Logo asLink href="/" />
           <CardDescription>
             {step === 'email' && 'Enter your email to get started'}
             {step === 'otp' && 'Enter the code sent to your email'}

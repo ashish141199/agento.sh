@@ -6,7 +6,8 @@ import { useAuthStore, type User } from '@/stores/auth.store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
+import { Logo } from '@/components/logo'
 import { authService } from '@/services/auth.service'
 
 /**
@@ -41,7 +42,7 @@ function AuthCallbackContent() {
         setNeedsName(true)
       } else {
         setAuth(user, token, false)
-        router.push('/')
+        router.push('/dashboard')
       }
     } catch {
       router.push('/get-started')
@@ -61,7 +62,7 @@ function AuthCallbackContent() {
 
       if (response.data) {
         setAuth(response.data.user, accessToken, false)
-        router.push('/')
+        router.push('/dashboard')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete signup')
@@ -82,7 +83,7 @@ function AuthCallbackContent() {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Agentoo</CardTitle>
+          <Logo asLink href="/" />
           <CardDescription>What should we call you?</CardDescription>
         </CardHeader>
         <CardContent>

@@ -1,25 +1,15 @@
+- [x] agent building is not actually starting when we enter a prompt. So let's take for example, we are logged in and we enter a prompt in the prompt box and we click on next. We are redirected to the "agent will perform," but the agent building doesn't really start.
+- [x] when we are in the home page and we are not logged in at that time, when we enter something, it is correctly redirecting me to the get started page and showing me a notification, all that is correct. 
 
-- [x] the chatbot I basically want as such: it should be extremely easy to use and understand chat interface. Whenever we update the name of the description on the left, on the right we should immediately update the name and the description for the chat window. 
-
-So there will be a chat window first inside which will have the chat messages and the text field. I want you to go to context 7 mcp and understand very clearly the communication that happens between Vercel AI SDK front end (because we also need to install that in the front end) so that we can have very easy-to-use chat function from the Vercel AI SDK and the communication that happens in the back end that we need to have. 
-
-So in the backend, what we will have is corresponding, we will have the /chat or /api/chat (I don't know, you decide that endpoint), and over there we will have our own Vercel AI SDK with OpenRouter SDK already over there. It can be created into agent.service.ts or chat.service.ts, you decide. I think it is better to have it under agent.service.ts. And in that, we will use the model that has been specified in the model of that particular agent. We will use a system prompt from that particular agent. We will then use this endpoint in the frontend with the frontend useChat function that you must have already read from context 7 MCP: This function comes from the Vercel AI SDK. And then basically we will have the chat work like that, so I need the chat to be done like that. 
-
-Also one very important thing to remember: each message is to be saved. Whatever agent message will come, it will be under is_agent boolean field. And then we'll show a real-time stream happening in frontend in the chat thing. 
-
-- [x] Auto token refreshing
-- [x] Tools
-    - [x] Delete tool is not working
-    - [x] Edit tool is not working - dialog is opening but I don't see any of the values of that particular tool come inside the form. 
-    - [x] The tools that we are creating is not really going to the agent. So when I create a tool and when I save it, and when I speak with the chat agent on the right, when I ask you to call that particular tool, it says that it is not able to find that tool, basically meaning that that tool is not accessible. You'll have to check agent.service.ts file. 
-    - [x] I don't think request body is something that needs to be in advanced options. I think it can be outside of advanced options, just below the URL and method fields, but probably it can be only enabled for all other methods which are not GET. Maybe. 
-    - [x] The width of the method drop-down can be increased because there seems a bit of significant gap between the method drop-down and the URL text field. 
-    - [ ]   I want to understand how interpolation is working in terms of the request body placeholder which you have mentioned. How is the interpolation working exactly and have we implemented that? 
+But when I log in, it should ideally redirect me back to the home page where I see the AI prompt box, but inside that my prompt is already written. That is what I want. So maybe you make use of local storage or Zustand, you decide. 
 
 
-Misc
-- [x] Dropdown background needs to be white / consistent with text fields
+- [ ] so what is currently happening is when I click on create agent, even if I click on build manually or if I enter a prompt and go there, what is happening is currently I'm being redirected to a page /agent/create where there's no agent actually being created as of now.
 
-- [ ] for the embedding of the agent after publishing it, I think for the position, the default position must be 'fit to parent' or something like that. Maybe some better words, maybe 'expanded' or something like that. 
+What is happening is because of that, when in the sidebar, if I type something and ask the agent builder to create something, the agent builder is creating it, but it is basically creating a completely different agent. It is being created only when I go back to the main home screen, refresh, and then only then I see the agent being created.
 
-That will basically mean that in whichever container or parent you put it to, it will just do 100% width and 100% height. 
+So ideally what I think is the process should be as such: we should be able to, as soon as I click on create agent and I click on build manually, have an agent already created with "untitled" for now. Something like that. Basically, the default title will be "untitled" or there won't be any title.
+
+And same thing with when I start with AI creation: as soon as I enter the prompt, an agent should be created, of course, login should be checked first and then that should be done. And then I should be redirected over to that page already. This is what I think.
+
+Is there a different solution or do you see any problems with this particular solution? I need to first discuss this with you and only then you can go ahead and make changes. Don't make any news right. 

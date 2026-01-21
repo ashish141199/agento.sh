@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Table,
@@ -10,20 +10,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
 import { useAgents } from '@/hooks/use-agents'
-import { ArrowUpDown, Search } from 'lucide-react'
+import { ArrowUpDown } from 'lucide-react'
 import type { Agent } from '@/services/agent.service'
 
 type SortField = 'name' | 'createdAt' | 'updatedAt'
 type SortOrder = 'asc' | 'desc'
 
+interface AgentsTableProps {
+  search?: string
+}
+
 /**
  * Agents data table with search and sort
  */
-export function AgentsTable() {
+export function AgentsTable({ search = '' }: AgentsTableProps) {
   const router = useRouter()
-  const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
@@ -86,16 +88,6 @@ export function AgentsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="relative w-full sm:max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 dark:text-neutral-500" />
-        <Input
-          placeholder="Search agents..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       {/* Mobile card view */}
       <div className="md:hidden space-y-3">
         {agents.length === 0 ? (
