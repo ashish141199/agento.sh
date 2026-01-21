@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth.store'
 import { authService } from '@/services/auth.service'
 import { useAuthGuard } from '@/hooks/use-auth-guard'
@@ -27,8 +27,11 @@ export default function ProtectedLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, clearAuth } = useAuthStore()
   const { isLoading } = useAuthGuard()
+
+  const isDashboard = pathname === '/dashboard'
 
   /**
    * Handle logout
@@ -62,7 +65,7 @@ export default function ProtectedLayout({
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
-      <header className="h-14 border-b bg-white dark:bg-neutral-900 flex items-center justify-between px-4 md:px-6 shrink-0">
+      <header className={`h-14 flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 ${isDashboard ? 'bg-transparent' : 'border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'}`}>
         <Logo asLink />
 
         <div className="flex items-center gap-2">
@@ -95,7 +98,7 @@ export default function ProtectedLayout({
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-6 overflow-hidden">{children}</main>
+      <main className={`flex-1 overflow-hidden ${isDashboard ? 'px-4 md:px-6' : 'p-4 md:p-6'}`}>{children}</main>
     </div>
   )
 }

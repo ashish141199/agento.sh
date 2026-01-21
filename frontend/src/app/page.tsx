@@ -9,6 +9,7 @@ import { Logo } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
 import { PromptBox } from '@/components/prompt-box'
+import { BackgroundDots } from '@/components/ui/background-dots'
 
 /**
  * Public landing page
@@ -54,9 +55,10 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
+    <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 relative">
+      <BackgroundDots className="fixed inset-0 z-0" />
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 md:px-6 shrink-0">
+      <header className="h-14 flex items-center justify-between px-4 md:px-6 shrink-0 relative z-10">
         <Logo asLink href="/" />
         <div className="flex items-center gap-2">
           <ModeToggle />
@@ -67,7 +69,7 @@ export default function LandingPage() {
       </header>
 
       {/* Main content - centered (with slight upward offset for optical balance) */}
-      <main className="flex-1 flex items-center justify-center px-4 pb-16 md:pb-24">
+      <main className="flex-1 flex items-center justify-center px-4 pb-16 md:pb-24 relative z-10">
         <div className="w-full max-w-2xl">
           <h1 className="text-2xl md:text-3xl font-semibold text-center text-neutral-900 dark:text-neutral-100 mb-8">
             What do you want your agent to do?

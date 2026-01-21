@@ -12,6 +12,7 @@ import { Plus, Search } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { agentService } from '@/services/agent.service'
 import { notification } from '@/lib/notifications'
+import { BackgroundDots } from '@/components/ui/background-dots'
 
 /**
  * Dashboard page - displays agents table with AI builder prompt
@@ -53,9 +54,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
+      {/* Full-screen dotted background */}
+      <BackgroundDots className="fixed inset-0 z-0" />
+
       {/* Builder prompt section - centered */}
-      <div className="flex-1 flex items-center justify-center min-h-[280px] md:min-h-[320px]">
+      <div className="shrink-0 flex items-center justify-center min-h-[280px] md:min-h-[320px] relative z-10">
         <div className="w-full max-w-2xl px-4">
           <h1 className="text-2xl md:text-3xl font-semibold text-center text-neutral-900 dark:text-neutral-100 mb-6">
             What do you want your agent to do?
@@ -65,12 +69,13 @@ export default function DashboardPage() {
             onChange={setBuilderPrompt}
             onSubmit={handleBuilderSubmit}
             isLoading={isCreating}
+            showSuggestions
           />
         </div>
       </div>
 
       {/* Agents section */}
-      <div className="border-t bg-white dark:bg-neutral-900 rounded-t-3xl -mx-4 md:-mx-6 px-4 md:px-6 pt-6 pb-4">
+      <div className="flex-1 min-h-0 border-t bg-white dark:bg-neutral-900 rounded-t-3xl -mx-4 md:-mx-6 px-4 md:px-6 pt-6 pb-4 relative z-10 overflow-auto">
         <div className="max-w-6xl mx-auto">
           {/* Agents section header */}
           <div className="mb-4 md:mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { Logo } from '@/components/logo'
+import { BackgroundDots } from '@/components/ui/background-dots'
 
 type Step = 'email' | 'otp' | 'name'
 
@@ -112,8 +113,9 @@ export default function GetStartedPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-      <Card className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4 relative">
+      <BackgroundDots className="absolute inset-0" />
+      <Card className="w-full max-w-sm relative z-10">
         <CardHeader className="text-center">
           <Logo asLink href="/" />
           <CardDescription>
