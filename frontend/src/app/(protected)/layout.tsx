@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth.store'
 import { authService } from '@/services/auth.service'
@@ -32,6 +33,20 @@ export default function ProtectedLayout({
   const { isLoading } = useAuthGuard()
 
   const isDashboard = pathname === '/dashboard'
+  const mainRef = useRef<HTMLElement>(null)
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const mainElement = mainRef.current
+    if (!mainElement || !isDashboard) return
+
+    const handleScroll = () => {
+      setIsScrolled(mainElement.scrollTop > 50)
+    }
+
+    mainElement.addEventListener('scroll', handleScroll)
+    return () => mainElement.removeEventListener('scroll', handleScroll)
+  }, [isDashboard])
 
   /**
    * Handle logout
@@ -65,7 +80,7 @@ export default function ProtectedLayout({
 
   return (
     <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950">
-      <header className={`h-14 flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 ${isDashboard ? 'bg-transparent' : 'border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'}`}>
+      <header className={`h-14 flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 transition-colors ${isDashboard && !isScrolled ? 'bg-transparent' : 'border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'}`}>
         <Logo asLink />
 
         <div className="flex items-center gap-2">
@@ -98,7 +113,7 @@ export default function ProtectedLayout({
         </div>
       </header>
 
-      <main className={`flex-1 overflow-hidden ${isDashboard ? 'px-4 md:px-6' : 'p-4 md:p-6'}`}>{children}</main>
+      <main ref={mainRef} className={`flex-1 ${isDashboard ? 'px-4 md:px-6 overflow-auto' : 'p-4 md:p-6 overflow-hidden'}`}>{children}</main>
     </div>
   )
 }
