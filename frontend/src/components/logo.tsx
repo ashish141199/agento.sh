@@ -13,7 +13,7 @@ interface LogoProps {
 export function Logo({ asLink = false, href = '/dashboard' }: LogoProps) {
   const content = (
     <span className="text-xl font-bold tracking-tight">
-      Agentoo
+      Autive
     </span>
   )
 

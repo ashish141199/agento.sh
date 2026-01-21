@@ -22,10 +22,10 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to: email,
-    subject: 'Your Agentoo verification code',
+    subject: 'Your Autive verification code',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #333; margin-bottom: 20px;">Welcome to Agentoo</h2>
+        <h2 style="color: #333; margin-bottom: 20px;">Welcome to Autive</h2>
         <p style="color: #666; font-size: 16px;">Your verification code is:</p>
         <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
           <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">${code}</span>

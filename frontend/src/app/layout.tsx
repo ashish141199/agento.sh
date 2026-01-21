@@ -12,8 +12,8 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Agentoo',
-  description: 'Welcome to Agentoo',
+  title: 'Autive',
+  description: 'Welcome to Autive',
 }
 
 /**

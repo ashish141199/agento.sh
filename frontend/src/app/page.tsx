@@ -38,7 +38,7 @@ export default function LandingPage() {
     if (!prompt.trim()) return
 
     // Store prompt in session storage for after login
-    sessionStorage.setItem('agentoo-builder-prompt', prompt.trim())
+    sessionStorage.setItem('autive-builder-prompt', prompt.trim())
 
     // Show notification and redirect to login
     notification.info('Sign in to start building your agent')

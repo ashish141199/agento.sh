@@ -23,7 +23,7 @@
 - CORS enabled for frontend communication
 
 ### Database
-- PostgreSQL database: `agentoo`
+- PostgreSQL database: `autive`
 - Generate migrations: `bun run db:generate`
 - Run migrations: `bun run db:migrate`
 - Open Drizzle Studio: `bun run db:studio`

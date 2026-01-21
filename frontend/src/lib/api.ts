@@ -71,7 +71,7 @@ export function handleAuthFailure(): void {
 
   // Clear localStorage completely for auth-related data
   if (typeof window !== 'undefined') {
-    localStorage.removeItem('agentoo-auth')
+    localStorage.removeItem('autive-auth')
 
     // Redirect to login page
     window.location.href = '/get-started'

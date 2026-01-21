@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'agentoo-auth',
+      name: 'autive-auth',
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

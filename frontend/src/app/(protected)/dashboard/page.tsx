@@ -27,9 +27,9 @@ export default function DashboardPage() {
 
   // Check for stored prompt from landing page (after login redirect)
   useEffect(() => {
-    const storedPrompt = sessionStorage.getItem('agentoo-builder-prompt')
+    const storedPrompt = sessionStorage.getItem('autive-builder-prompt')
     if (storedPrompt) {
-      sessionStorage.removeItem('agentoo-builder-prompt')
+      sessionStorage.removeItem('autive-builder-prompt')
       // Pre-fill the prompt input with the stored value
       setBuilderPrompt(storedPrompt)
     }

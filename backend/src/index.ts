@@ -63,7 +63,7 @@ fastify.get('/health', async () => {
  * Root route
  */
 fastify.get('/', async () => {
-  return { message: 'Agentoo API is running' }
+  return { message: 'Autive API is running' }
 })
 
 /**

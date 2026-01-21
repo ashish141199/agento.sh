@@ -1,8 +1,8 @@
-# Agentoo - MVP Specification
+# Autive - MVP Specification
 
 ## Overview
 
-Agentoo is a simple, powerful agent builder platform that lets anyone create AI agents without dealing with the complexity of prompt engineering, RAG configuration, memory management, or infrastructure.
+Autive is a simple, powerful agent builder platform that lets anyone create AI agents without dealing with the complexity of prompt engineering, RAG configuration, memory management, or infrastructure.
 
 **Core Philosophy:** Make the initial agent creation stupidly simple, hide complexity behind smart defaults, expose advanced options only when needed.
 
@@ -127,7 +127,7 @@ After clicking "Publish," agent becomes live with 3 access methods:
 
 ### 1. Chat Link
 ```
-https://app.agentoo.com/chat/abc123
+https://app.autive.ai/chat/abc123
 ```
 - Shareable URL
 - Anyone can chat with the agent
@@ -135,7 +135,7 @@ https://app.agentoo.com/chat/abc123
 
 ### 2. Embed Code
 ```html
-<script src="https://app.agentoo.com/embed.js" data-agent="abc123"></script>
+<script src="https://app.autive.ai/embed.js" data-agent="abc123"></script>
 ```
 - Drop into any website
 - Renders as chat widget
@@ -143,7 +143,7 @@ https://app.agentoo.com/chat/abc123
 
 ### 3. API Endpoint
 ```
-POST https://api.agentoo.com/v1/agents/abc123/chat
+POST https://api.autive.ai/v1/agents/abc123/chat
 Authorization: Bearer sk-xxxxx
 
 {
@@ -244,7 +244,7 @@ Authorization: Bearer sk-xxxxx
 
 1. Should chat link require auth for end users? (Recommendation: No, for frictionless sharing)
 2. Rate limiting for free agents? (Recommendation: Yes, 100 req/day default)
-3. Branding on embedded chat? (Recommendation: "Powered by Agentoo" with paid option to remove)
+3. Branding on embedded chat? (Recommendation: "Powered by Autive" with paid option to remove)
 
 ---
 
