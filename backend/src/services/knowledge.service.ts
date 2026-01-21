@@ -861,22 +861,40 @@ export async function searchKnowledge(
   limit: number = 5,
   similarityThreshold: number = 0.7
 ): Promise<KnowledgeSearchResult[]> {
+  console.log(`[KnowledgeService] searchKnowledge called:`, {
+    agentId,
+    query: query.substring(0, 100),
+    limit,
+    similarityThreshold,
+  })
+
   // Check if agent has knowledge
   const hasKnowledge = await agentHasKnowledge(agentId)
+  console.log(`[KnowledgeService] Agent has knowledge: ${hasKnowledge}`)
+
   if (!hasKnowledge) {
+    console.log(`[KnowledgeService] No knowledge found for agent ${agentId}`)
     return []
   }
 
   // Generate query embedding
+  console.log(`[KnowledgeService] Generating query embedding...`)
   const queryResult = await embeddingService.embedText(query)
+  console.log(`[KnowledgeService] Query embedding generated, dimensions: ${queryResult.embedding.length}`)
 
   // Search chunks
+  console.log(`[KnowledgeService] Searching chunks...`)
   const results = await searchKnowledgeChunks(
     agentId,
     queryResult.embedding,
     limit,
     similarityThreshold
   )
+
+  console.log(`[KnowledgeService] Search returned ${results.length} results`)
+  if (results.length > 0) {
+    console.log(`[KnowledgeService] Top result similarity: ${results[0]?.similarity}`)
+  }
 
   return results.map(r => ({
     content: r.chunk.content,

@@ -336,8 +336,42 @@ export async function searchKnowledgeChunks(
   similarity: number
   sourceName: string
 }>> {
+  console.log(`[KnowledgeDB] searchKnowledgeChunks called:`, {
+    agentId,
+    embeddingLength: queryEmbedding.length,
+    limit,
+    similarityThreshold,
+  })
+
   // Convert embedding array to pgvector format
   const embeddingStr = `[${queryEmbedding.join(',')}]`
+
+  // First, let's check if there are any chunks for this agent
+  const chunkCountResult = await db.execute(sql`
+    SELECT COUNT(*) as count
+    FROM knowledge_chunks kc
+    INNER JOIN knowledge_sources ks ON kc.source_id = ks.id
+    WHERE ks.agent_id = ${agentId}
+      AND ks.status = 'ready'
+  `)
+  console.log(`[KnowledgeDB] Total chunks for agent: ${(chunkCountResult as any)[0]?.count}`)
+
+  // Let's also check the top similarities without threshold to debug
+  const debugResults = await db.execute(sql`
+    SELECT
+      1 - (kc.embedding <=> ${embeddingStr}::vector) as similarity,
+      LEFT(kc.content, 100) as content_preview
+    FROM knowledge_chunks kc
+    INNER JOIN knowledge_sources ks ON kc.source_id = ks.id
+    WHERE ks.agent_id = ${agentId}
+      AND ks.status = 'ready'
+    ORDER BY kc.embedding <=> ${embeddingStr}::vector
+    LIMIT 5
+  `)
+  console.log(`[KnowledgeDB] Top 5 similarities (no threshold):`, (debugResults as any[]).map(r => ({
+    similarity: r.similarity,
+    preview: r.content_preview?.substring(0, 50),
+  })))
 
   // Use cosine similarity (1 - cosine distance)
   // pgvector uses <=> for cosine distance
@@ -364,6 +398,8 @@ export async function searchKnowledgeChunks(
 
   // Cast results to expected type
   const rows = results as unknown as SearchResultRow[]
+
+  console.log(`[KnowledgeDB] Results after threshold (${similarityThreshold}): ${rows.length}`)
 
   return rows.map((row) => ({
     chunk: {

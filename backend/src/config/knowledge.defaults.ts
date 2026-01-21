@@ -88,7 +88,7 @@ export const RETRIEVAL_DEFAULTS = {
   /** Default number of chunks to retrieve */
   topK: 5,
   /** Minimum similarity score (0-1, cosine similarity) */
-  similarityThreshold: 0.7,
+  similarityThreshold: 0.5,
   /** Default retrieval mode */
   mode: 'tool' as const,
   /** Maximum chunks to inject in auto-inject mode */

@@ -33,7 +33,7 @@ export const DEFAULT_KNOWLEDGE_SETTINGS: KnowledgeSettings = {
   enabled: true,
   mode: 'tool',
   topK: 5,
-  similarityThreshold: 0.7,
+  similarityThreshold: 0.5,
 }
 
 /**
