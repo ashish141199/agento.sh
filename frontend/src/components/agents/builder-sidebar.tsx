@@ -12,6 +12,12 @@ import { refreshAccessToken, handleAuthFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { builderService, type BuilderMessage } from '@/services/builder.service'
 import type { Agent } from '@/services/agent.service'
+import {
+  AskUserCard,
+  AnsweredSummary,
+  type AskUserInput,
+  type AskUserResponse,
+} from './ask-user-card'
 
 interface BuilderSidebarProps {
   isOpen: boolean
@@ -139,24 +145,81 @@ function BuilderChatInner({
     })
   }, [currentAgentId, fetchWithAuth])
 
-  const { messages: chatMessages, sendMessage, status } = useChat({
+  const { messages: chatMessages, sendMessage, addToolOutput, status } = useChat({
     id: `builder-chat-${currentAgentId || 'new'}`,
     transport,
   })
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
+  // Track submitted askUser responses by toolCallId
+  const [submittedResponses, setSubmittedResponses] = useState<
+    Record<string, { input: AskUserInput; response: AskUserResponse }>
+  >({})
+  const [submittingToolId, setSubmittingToolId] = useState<string | null>(null)
+
+  /**
+   * Handle askUser tool response submission
+   */
+  const handleAskUserSubmit = useCallback(
+    async (toolCallId: string, askInput: AskUserInput, response: AskUserResponse) => {
+      setSubmittingToolId(toolCallId)
+      try {
+        // Store the response for display
+        setSubmittedResponses((prev) => ({
+          ...prev,
+          [toolCallId]: { input: askInput, response },
+        }))
+
+        // Send the tool output back to the agent
+        await addToolOutput({
+          toolCallId,
+          tool: 'askUser',
+          output: response,
+        })
+
+        // Continue the conversation
+        sendMessage()
+      } finally {
+        setSubmittingToolId(null)
+      }
+    },
+    [addToolOutput, sendMessage]
+  )
+
   // Combine initial messages with chat messages
   const allMessages = useMemo(() => {
-    // Convert initial messages to display format
+    // Convert initial messages to display format, using persisted parts if available
     const initial = initialMessages.map(msg => ({
       id: msg.id,
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
-      parts: [{ type: 'text' as const, text: msg.content }],
+      parts: msg.parts && msg.parts.length > 0
+        ? msg.parts
+        : [{ type: 'text' as const, text: msg.content }],
     }))
     return [...initial, ...chatMessages]
   }, [initialMessages, chatMessages])
+
+  // Check if there's a pending askUser tool awaiting response
+  const hasPendingAskUser = useMemo(() => {
+    return chatMessages.some((m) =>
+      m.parts?.some((part) => {
+        if (part.type.startsWith('tool-')) {
+          const toolPart = part as { state?: string; type: string; toolCallId?: string }
+          const toolName = part.type.replace('tool-', '')
+          const toolCallId = toolPart.toolCallId
+          return (
+            toolName === 'askUser' &&
+            toolPart.state === 'input-available' &&
+            toolCallId &&
+            !submittedResponses[toolCallId]
+          )
+        }
+        return false
+      })
+    )
+  }, [chatMessages, submittedResponses])
 
   // Poll for agent updates when assistant responds with tool calls
   useEffect(() => {
@@ -247,18 +310,78 @@ function BuilderChatInner({
             >
               {message.parts?.map((part, index) => {
                 if (part.type === 'text') {
+                  const textContent = (part as { text: string }).text
                   return message.role === 'user' ? (
-                    <p key={index} className="whitespace-pre-wrap">{part.text}</p>
+                    <p key={index} className="whitespace-pre-wrap">{textContent}</p>
                   ) : (
                     <div key={index} className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0">
-                      <ReactMarkdown>{part.text}</ReactMarkdown>
+                      <ReactMarkdown>{textContent}</ReactMarkdown>
                     </div>
                   )
                 }
                 // Handle tool parts (format: tool-{toolName})
                 if (part.type.startsWith('tool-')) {
-                  const toolPart = part as { state?: string; type: string }
+                  const toolPart = part as { state?: string; type: string; toolCallId?: string; input?: unknown; output?: unknown }
                   const toolName = part.type.replace('tool-', '')
+                  const toolCallId = toolPart.toolCallId || ''
+
+                  // Special handling for askUser tool
+                  if (toolName === 'askUser') {
+                    const askInput = toolPart.input as AskUserInput | undefined
+                    const submittedData = submittedResponses[toolCallId]
+                    const isWaitingForInput =
+                      toolPart.state === 'input-available' && !submittedData
+
+                    // Show AskUserCard if waiting for input
+                    if (isWaitingForInput && askInput?.questions) {
+                      return (
+                        <AskUserCard
+                          key={index}
+                          input={askInput}
+                          onSubmit={(response) =>
+                            handleAskUserSubmit(toolCallId, askInput, response)
+                          }
+                          isSubmitting={submittingToolId === toolCallId}
+                        />
+                      )
+                    }
+
+                    // Show summary if already submitted
+                    if (submittedData) {
+                      return (
+                        <AnsweredSummary
+                          key={index}
+                          input={submittedData.input}
+                          response={submittedData.response}
+                        />
+                      )
+                    }
+
+                    // Show summary from tool output if available
+                    if (toolPart.state === 'output-available' && toolPart.output) {
+                      const outputResponse = toolPart.output as AskUserResponse
+                      if (askInput?.questions) {
+                        return (
+                          <AnsweredSummary
+                            key={index}
+                            input={askInput}
+                            response={outputResponse}
+                          />
+                        )
+                      }
+                    }
+
+                    // Fallback to regular tool card for other states (e.g., input-streaming)
+                    return (
+                      <ToolCallCard
+                        key={index}
+                        toolName="Asking questions..."
+                        status={getToolStatus(toolPart.state)}
+                      />
+                    )
+                  }
+
+                  // Regular tool call handling
                   return (
                     <ToolCallCard
                       key={index}
@@ -293,7 +416,7 @@ function BuilderChatInner({
             placeholder="Describe your agent..."
             className="flex-1 text-sm"
           />
-          <Button type="submit" disabled={!input.trim() || isLoading} size="icon" className="shrink-0">
+          <Button type="submit" disabled={!input.trim() || isLoading || hasPendingAskUser} size="icon" className="shrink-0">
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

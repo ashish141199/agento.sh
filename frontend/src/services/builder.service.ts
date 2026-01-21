@@ -3,6 +3,13 @@ import type { Agent } from './agent.service'
 import type { Tool } from './tool.service'
 
 /**
+ * Message part structure (matches backend MessagePart type)
+ */
+export type MessagePart =
+  | { type: 'text'; text: string }
+  | { type: string; toolCallId?: string; toolName?: string; state?: string; input?: unknown; output?: unknown }
+
+/**
  * Builder message structure
  */
 export interface BuilderMessage {
@@ -11,6 +18,7 @@ export interface BuilderMessage {
   agentId: string | null
   role: 'user' | 'assistant'
   content: string
+  parts?: MessagePart[]
   createdAt: string
 }
 

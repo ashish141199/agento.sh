@@ -1,0 +1,1 @@
+ALTER TABLE "builder_messages" ADD COLUMN "parts" jsonb;

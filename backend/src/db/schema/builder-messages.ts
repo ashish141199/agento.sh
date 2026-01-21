@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, pgEnum } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, pgEnum, jsonb } from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { agents } from './agents'
 
@@ -28,12 +28,23 @@ export const builderMessages = pgTable('builder_messages', {
   /** Message role */
   role: builderMessageRoleEnum('role').notNull(),
 
-  /** Message content */
+  /** Message content (text part for display) */
   content: text('content').notNull(),
+
+  /** Full message parts including tool calls (UIMessage parts format) */
+  parts: jsonb('parts').$type<MessagePart[]>(),
 
   /** Timestamp when message was created */
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+/**
+ * Message part type for storage
+ * Matches Vercel AI SDK UIMessage parts structure
+ */
+export type MessagePart =
+  | { type: 'text'; text: string }
+  | { type: string; toolCallId?: string; toolName?: string; state?: string; input?: unknown; output?: unknown }
 
 /**
  * Builder message type inferred from schema

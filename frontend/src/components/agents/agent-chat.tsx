@@ -11,6 +11,12 @@ import { useAuthStore } from '@/stores/auth.store'
 import { refreshAccessToken, handleAuthFailure } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { ToolCallCard, type ToolCallPart } from './tool-call-card'
+import {
+  AskUserCard,
+  AnsweredSummary,
+  type AskUserInput,
+  type AskUserResponse,
+} from './ask-user-card'
 
 interface AgentChatProps {
   agentId: string | null
@@ -87,12 +93,66 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
     })
   }, [agentId, fetchWithAuth])
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, addToolOutput, status } = useChat({
     id: `agent-chat-${agentId}`,
     transport,
   })
 
   const isLoading = status === 'submitted' || status === 'streaming'
+
+  // Track submitted askUser responses by toolCallId
+  const [submittedResponses, setSubmittedResponses] = useState<
+    Record<string, { input: AskUserInput; response: AskUserResponse }>
+  >({})
+  const [submittingToolId, setSubmittingToolId] = useState<string | null>(null)
+
+  /**
+   * Handle askUser tool response submission
+   */
+  const handleAskUserSubmit = useCallback(
+    async (toolCallId: string, input: AskUserInput, response: AskUserResponse) => {
+      setSubmittingToolId(toolCallId)
+      try {
+        // Store the response for display
+        setSubmittedResponses((prev) => ({
+          ...prev,
+          [toolCallId]: { input, response },
+        }))
+
+        // Send the tool output back to the agent
+        await addToolOutput({
+          toolCallId,
+          tool: 'askUser',
+          output: response,
+        })
+
+        // Continue the conversation
+        sendMessage()
+      } finally {
+        setSubmittingToolId(null)
+      }
+    },
+    [addToolOutput, sendMessage]
+  )
+
+  // Check if there's a pending askUser tool awaiting response
+  const hasPendingAskUser = useMemo(() => {
+    return messages.some((m) =>
+      m.parts?.some((part) => {
+        if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
+          const toolPart = part as unknown as ToolCallPart
+          const toolName = toolPart.toolName || part.type.replace('tool-', '')
+          const toolCallId = toolPart.toolCallId
+          return (
+            toolName === 'askUser' &&
+            toolPart.state === 'input-available' &&
+            !submittedResponses[toolCallId]
+          )
+        }
+        return false
+      })
+    )
+  }, [messages, submittedResponses])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -212,12 +272,75 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
                       // Handle tool call parts (dynamic-tool or tool-*)
                       if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
                         const toolPart = part as unknown as ToolCallPart
+                        const toolName = toolPart.toolName || part.type.replace('tool-', '')
+                        const toolCallId = toolPart.toolCallId
+
+                        // Special handling for askUser tool
+                        if (toolName === 'askUser') {
+                          const input = toolPart.input as AskUserInput | undefined
+                          const submittedData = submittedResponses[toolCallId]
+                          const isWaitingForInput =
+                            toolPart.state === 'input-available' && !submittedData
+
+                          // Show AskUserCard if waiting for input
+                          if (isWaitingForInput && input?.questions) {
+                            return (
+                              <AskUserCard
+                                key={index}
+                                input={input}
+                                onSubmit={(response) =>
+                                  handleAskUserSubmit(toolCallId, input, response)
+                                }
+                                isSubmitting={submittingToolId === toolCallId}
+                              />
+                            )
+                          }
+
+                          // Show summary if already submitted or has output
+                          if (submittedData) {
+                            return (
+                              <AnsweredSummary
+                                key={index}
+                                input={submittedData.input}
+                                response={submittedData.response}
+                              />
+                            )
+                          }
+
+                          // Show summary from tool output if available
+                          if (toolPart.state === 'output-available' && toolPart.output) {
+                            const outputResponse = toolPart.output as AskUserResponse
+                            if (input?.questions) {
+                              return (
+                                <AnsweredSummary
+                                  key={index}
+                                  input={input}
+                                  response={outputResponse}
+                                />
+                              )
+                            }
+                          }
+
+                          // Fallback to regular tool card for other states
+                          return (
+                            <ToolCallCard
+                              key={index}
+                              part={{
+                                ...toolPart,
+                                toolName,
+                                title: 'Asking questions...',
+                              }}
+                            />
+                          )
+                        }
+
+                        // Regular tool call handling
                         return (
                           <ToolCallCard
                             key={index}
                             part={{
                               ...toolPart,
-                              toolName: toolPart.toolName || part.type.replace('tool-', ''),
+                              toolName,
                             }}
                           />
                         )
@@ -272,7 +395,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
             placeholder="Type a message..."
             className="flex-1"
           />
-          <Button type="submit" disabled={!input.trim() || isLoading} size="icon">
+          <Button type="submit" disabled={!input.trim() || isLoading || hasPendingAskUser} size="icon">
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

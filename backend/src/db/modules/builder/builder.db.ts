@@ -1,10 +1,21 @@
-import { eq, and, isNull, desc } from 'drizzle-orm'
+import { eq, and, isNull, desc, inArray } from 'drizzle-orm'
 import { db } from '../../index'
 import {
   builderMessages,
   type BuilderMessage,
   type InsertBuilderMessage,
+  type MessagePart,
 } from '../../schema'
+
+/**
+ * UIMessage structure from Vercel AI SDK
+ */
+export interface UIMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content?: string
+  parts?: Array<{ type: string; text?: string; [key: string]: unknown }>
+}
 
 /**
  * Find builder messages by agent ID
@@ -130,4 +141,91 @@ export async function getBuilderMessages(
     return findBuilderMessagesByAgentId(agentId)
   }
   return findBuilderMessagesWithoutAgent(userId)
+}
+
+/**
+ * Save complete conversation state
+ * Replaces all existing messages with the new ones
+ * This follows the AI SDK's recommended pattern for message persistence
+ * @param userId - The user ID
+ * @param agentId - The agent ID (optional, but may have changed during conversation)
+ * @param messages - Complete UIMessage array from AI SDK
+ */
+export async function saveBuilderConversation(
+  userId: string,
+  agentId: string | null,
+  messages: UIMessage[]
+): Promise<void> {
+  // Delete existing messages for this context
+  // We need to handle both:
+  // 1. Messages with the current agentId (if set)
+  // 2. Orphan messages (agentId is null) - for when an agent was just created
+  if (agentId) {
+    // Delete messages for this agent
+    await db
+      .delete(builderMessages)
+      .where(eq(builderMessages.agentId, agentId))
+    // Also delete any orphan messages for this user (conversation that created this agent)
+    await db
+      .delete(builderMessages)
+      .where(
+        and(
+          eq(builderMessages.userId, userId),
+          isNull(builderMessages.agentId)
+        )
+      )
+  } else {
+    // No agent yet, just delete orphan messages
+    await db
+      .delete(builderMessages)
+      .where(
+        and(
+          eq(builderMessages.userId, userId),
+          isNull(builderMessages.agentId)
+        )
+      )
+  }
+
+  // Insert all messages with their parts
+  if (messages.length > 0) {
+    const messagesToInsert: InsertBuilderMessage[] = messages
+      .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+      .map(msg => {
+        // Extract text content for the content field
+        let textContent = ''
+        const parts: MessagePart[] = []
+
+        if (msg.parts) {
+          for (const part of msg.parts) {
+            if (part.type === 'text' && part.text) {
+              textContent = part.text
+              parts.push({ type: 'text', text: part.text })
+            } else {
+              // Store tool call parts with all their data
+              parts.push({
+                type: part.type,
+                toolCallId: part.toolCallId as string | undefined,
+                toolName: part.toolName as string | undefined,
+                state: part.state as string | undefined,
+                input: part.input,
+                output: part.output,
+              })
+            }
+          }
+        }
+
+        return {
+          id: msg.id,
+          userId,
+          agentId,
+          role: msg.role as 'user' | 'assistant',
+          content: textContent || msg.content || '',
+          parts: parts.length > 0 ? parts : null,
+        }
+      })
+
+    if (messagesToInsert.length > 0) {
+      await db.insert(builderMessages).values(messagesToInsert)
+    }
+  }
 }

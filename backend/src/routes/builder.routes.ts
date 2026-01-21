@@ -7,6 +7,8 @@ import {
   getBuilderMessages,
   createBuilderMessage,
   linkBuilderMessagesToAgent,
+  saveBuilderConversation,
+  type UIMessage as DBUIMessage,
 } from '../db/modules/builder/builder.db'
 import {
   createAgent,
@@ -25,7 +27,7 @@ import {
   removeToolFromAgent,
 } from '../db/modules/tool/tool.db'
 import { findAllModels, findModelByModelId } from '../db/modules/model/model.db'
-import type { BuilderMessage } from '../db/schema/builder-messages'
+import type { BuilderMessage, MessagePart } from '../db/schema/builder-messages'
 import type { InstructionsConfig, AgentSettings } from '../db/schema/agents'
 import type { ApiConnectorConfig } from '../db/schema/tools'
 import { DEFAULT_MODEL_ID } from '../config/defaults'
@@ -106,14 +108,14 @@ Autive is a platform where users create, customize, and deploy AI agents. Each a
 
 ## Your Approach
 1. **Understand first**: Ask questions to understand what the user wants to build. Don't rush to create.
-2. **One question at a time**: Keep the conversation focused. Don't overwhelm with multiple questions.
+2. **Use the askUser tool**: When you need to gather information, use the askUser tool to present clear choices. This provides a better user experience than plain text questions.
 3. **Suggest and explain**: When you have enough info, explain what you're configuring and why.
 4. **Iterate**: After initial creation, offer to refine and improve.
 
 ## Guidelines
 - **KEEP RESPONSES SHORT AND CONCISE** - Use 1-3 sentences max for most responses. Avoid long explanations.
 - Be conversational and helpful, but brief
-- Ask one question at a time - don't overwhelm with multiple questions
+- **USE THE askUser TOOL** when you need to ask clarification questions. Prefer multiple-choice over text questions when possible. This makes it easier for users to respond.
 - When using tools, give a brief confirmation (1 line) of what was done
 - For complex agents, gather requirements before using tools
 - For simple requests, you can create with minimal questions
@@ -195,19 +197,9 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
-    // Save the user's message
-    const lastUserMessage = messages[messages.length - 1]
-    if (lastUserMessage && lastUserMessage.role === 'user') {
-      const textPart = lastUserMessage.parts?.find(p => p.type === 'text')
-      if (textPart && 'text' in textPart) {
-        await createBuilderMessage({
-          userId,
-          agentId: currentAgentId,
-          role: 'user',
-          content: textPart.text,
-        })
-      }
-    }
+    // Note: We don't save messages here individually anymore.
+    // The complete conversation is saved in onFinish of toUIMessageStreamResponse.
+    // This ensures proper message ordering and includes tool outputs from client-side tools.
 
     // Generate system prompt with current context
     const systemPrompt = await generateBuilderSystemPrompt(currentAgentId, userId)
@@ -233,6 +225,48 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Define builder tools
     const builderTools = {
+      askUser: tool({
+        description: `Ask the user clarification questions when you need more information to proceed. Use this tool to gather requirements before creating or configuring the agent.
+
+Guidelines:
+- Use when you need to understand the user's specific needs
+- Prefer MCQ (single_choice or multiple_choice) over text questions when possible
+- Keep questions clear and concise
+- Maximum 5 questions per call, minimum 1
+- Use allowOther: true for MCQ when the user might have an answer not in your options
+- Each question must have a unique id`,
+        title: 'Ask User',
+        inputSchema: z.object({
+          questions: z
+            .array(
+              z.object({
+                id: z.string().describe('Unique identifier for this question'),
+                text: z.string().describe('The question text to display to the user'),
+                type: z
+                  .enum(['single_choice', 'multiple_choice', 'text'])
+                  .describe('Type of question: single_choice (radio), multiple_choice (checkbox), or text (free input)'),
+                options: z
+                  .array(
+                    z.object({
+                      label: z.string().describe('Display label for this option'),
+                      value: z.string().describe('Value to return when selected'),
+                    })
+                  )
+                  .optional()
+                  .describe('Options for MCQ questions (required for single_choice and multiple_choice)'),
+                allowOther: z
+                  .boolean()
+                  .optional()
+                  .describe('If true, adds an "Other" option that lets the user type a custom answer'),
+              })
+            )
+            .min(1)
+            .max(5)
+            .describe('Array of questions to ask the user (1-5 questions)'),
+        }),
+        // No execute function - this tool is handled client-side
+      }),
+
       createOrUpdateAgent: tool({
         description: 'Creates a new agent or updates the current agent configuration. Use this after gathering enough information from the user. All fields are optional except name is required for initial creation.',
         inputSchema: createOrUpdateAgentSchema,
@@ -602,26 +636,53 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
       }),
     }
 
-    // Stream the response
+    // Stream the response using toUIMessageStreamResponse for proper message persistence
     const result = streamText({
       model: openrouter.chat('anthropic/claude-sonnet-4'),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: builderTools,
       stopWhen: stepCountIs(5),
-      onFinish: async ({ text }) => {
-        // Save the assistant's response
-        await createBuilderMessage({
+    })
+
+    // Create the UI message stream response with proper message persistence
+    const webResponse = result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      onFinish: async ({ messages: allMessages }) => {
+        // Save the complete conversation state
+        // This includes all messages with their parts in the correct order
+        // and includes tool outputs from client-side tools like askUser
+        await saveBuilderConversation(
           userId,
-          agentId: currentAgentId,
-          role: 'assistant',
-          content: text || '',
-        })
+          currentAgentId,
+          allMessages as DBUIMessage[]
+        )
       },
     })
 
-    // Pipe the stream to response
-    result.pipeUIMessageStreamToResponse(reply.raw)
+    // Pipe the Web Response to Fastify's raw response
+    // Set headers from the Web Response
+    webResponse.headers.forEach((value, key) => {
+      reply.raw.setHeader(key, value)
+    })
+    reply.raw.statusCode = webResponse.status
+
+    // Pipe the body
+    if (webResponse.body) {
+      const reader = webResponse.body.getReader()
+      const pump = async (): Promise<void> => {
+        const { done, value } = await reader.read()
+        if (done) {
+          reply.raw.end()
+          return
+        }
+        reply.raw.write(value)
+        return pump()
+      }
+      await pump()
+    } else {
+      reply.raw.end()
+    }
   })
 
   /**
