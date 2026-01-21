@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import cookie from '@fastify/cookie'
+import multipart from '@fastify/multipart'
 import { authRoutes } from './routes/auth.routes'
 import { agentRoutes } from './routes/agents.routes'
 import { modelRoutes } from './routes/models.routes'
@@ -9,6 +10,8 @@ import { toolRoutes } from './routes/tools.routes'
 import { publishRoutes } from './routes/publish.routes'
 import { conversationRoutes } from './routes/conversation.routes'
 import { builderRoutes } from './routes/builder.routes'
+import { knowledgeRoutes } from './routes/knowledge.routes'
+import { FILE_UPLOAD_DEFAULTS } from './config/knowledge.defaults'
 
 const fastify = Fastify({
   logger: true,
@@ -40,6 +43,13 @@ await fastify.register(cookie, {
   secret: process.env.JWT_SECRET,
 })
 
+await fastify.register(multipart, {
+  limits: {
+    fileSize: FILE_UPLOAD_DEFAULTS.maxFileSizeBytes,
+    files: 10, // Max 10 files per request
+  },
+})
+
 /**
  * Register routes
  */
@@ -51,6 +61,7 @@ await fastify.register(toolRoutes)
 await fastify.register(publishRoutes)
 await fastify.register(conversationRoutes)
 await fastify.register(builderRoutes)
+await fastify.register(knowledgeRoutes)
 
 /**
  * Health check route

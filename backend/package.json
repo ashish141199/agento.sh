@@ -15,6 +15,7 @@
     "@types/bun": "latest",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.5",
+    "@types/pdf-parse": "^1.1.5",
     "drizzle-kit": "^0.31.8"
   },
   "peerDependencies": {
@@ -22,16 +23,22 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.12",
+    "@aws-sdk/client-s3": "^3.972.0",
+    "@aws-sdk/s3-request-presigner": "^3.972.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
+    "@fastify/multipart": "^9.4.0",
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "ai": "^6.0.39",
+    "cheerio": "^1.1.2",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.7.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^7.0.12",
+    "pdf-parse": "^2.4.5",
     "postgres": "^3.4.8",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.5"
   }
 }

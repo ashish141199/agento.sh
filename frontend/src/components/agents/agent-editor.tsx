@@ -166,10 +166,10 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
 
       {/* Left side - Configuration */}
       <div
-        className={`flex-1 md:flex-none flex flex-col min-w-0 md:min-w-[320px] ${mobileView === 'form' ? 'flex' : 'hidden'} md:flex`}
+        className={`flex-1 md:flex-none flex flex-col min-w-0 min-h-0 md:min-w-[320px] ${mobileView === 'form' ? 'flex' : 'hidden'} md:flex`}
         style={isDesktop ? { width: `${leftPanelWidth}%`, maxWidth: '700px' } : undefined}
       >
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <TabsList className="w-fit">
               <TabsTrigger value="identity" onClick={() => editor.setShowSettings(false)}>Identity</TabsTrigger>
@@ -187,7 +187,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
             </Button>
           </div>
 
-          <div className="flex-1 mt-6 overflow-auto">
+          <div className="flex-1 mt-6 min-h-0 overflow-auto">
             {editor.showSettings ? (
               <AgentSettingsPanel
                 settingsTab={editor.settingsTab}
@@ -227,6 +227,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
                     instructionsConfig={editor.instructionsConfig}
                     onInstructionsChange={editor.setInstructionsConfig}
                     disabled={editor.isSaving}
+                    agentId={editor.agentId}
                   />
                 </TabsContent>
 

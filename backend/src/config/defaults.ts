@@ -1,4 +1,4 @@
-import type { InstructionsConfig, AgentSettings } from '../db/schema/agents'
+import type { InstructionsConfig, AgentSettings, KnowledgeSettings } from '../db/schema/agents'
 import type { EmbedConfig } from '../db/schema/agents'
 
 /**
@@ -27,6 +27,16 @@ export const DEFAULT_WELCOME_MESSAGE = ''
 export const DEFAULT_SUGGESTED_PROMPTS: string[] = []
 
 /**
+ * Default knowledge settings
+ */
+export const DEFAULT_KNOWLEDGE_SETTINGS: KnowledgeSettings = {
+  enabled: true,
+  mode: 'tool',
+  topK: 5,
+  similarityThreshold: 0.7,
+}
+
+/**
  * Default agent settings
  */
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
@@ -37,6 +47,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
     welcomeMessage: DEFAULT_WELCOME_MESSAGE,
     suggestedPrompts: DEFAULT_SUGGESTED_PROMPTS,
   },
+  knowledge: DEFAULT_KNOWLEDGE_SETTINGS,
 }
 
 /**

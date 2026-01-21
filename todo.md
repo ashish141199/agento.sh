@@ -33,3 +33,10 @@ Retrain properly going forward. There will also be configurable ways to change a
 You can store this here and I need an implementation to what we have over there because it becomes easy for us to store all these documents in S3 whenever required. I hope we'll be able to have proper organization in terms of folders, something like each agent will have its own folder under which it will be saved, something like that. 
 
 For the AWS S3 settings, you may use the same region and everything, but instead of the name Platoona for S3, you'll have to use autive as the slug/name
+
+
+- [ ] In the knowledge we should also need a delete confirmation dialog when we click on the delete icon. We already have that component without. 
+- [ ] Also Along with the ready or processing or fail status and the number of chunks, should we also show the number of pages or the file size as well in the items very minimally? 
+- [ ] Also, add more sources in the dialogue where we have the option We need to add more sources, drop files or click to upload, or we can add the website. That should not be visible. 
+
+We should first have an "Add new" button or "Add more sources" button at the bottom and only if i click on that then that must be opened.

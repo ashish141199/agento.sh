@@ -48,6 +48,16 @@ export interface CreateAgentInput {
 }
 
 /**
+ * Knowledge retrieval settings
+ */
+export interface KnowledgeSettings {
+  enabled: boolean
+  mode: 'tool' | 'auto_inject'
+  topK: number
+  similarityThreshold: number
+}
+
+/**
  * Agent settings type
  */
 export interface AgentSettings {
@@ -58,6 +68,7 @@ export interface AgentSettings {
     welcomeMessage: string
     suggestedPrompts: string[]
   }
+  knowledge?: KnowledgeSettings
 }
 
 /**

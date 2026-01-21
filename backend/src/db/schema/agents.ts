@@ -21,6 +21,20 @@ export interface EmbedConfig {
 }
 
 /**
+ * Knowledge retrieval settings
+ */
+export interface KnowledgeSettings {
+  /** Whether knowledge is enabled for this agent */
+  enabled: boolean
+  /** Retrieval mode: 'tool' = use searchKnowledge tool, 'auto_inject' = inject with every message */
+  mode: 'tool' | 'auto_inject'
+  /** Number of chunks to retrieve */
+  topK: number
+  /** Minimum similarity score for results (0-1) */
+  similarityThreshold: number
+}
+
+/**
  * Agent settings JSON structure
  */
 export interface AgentSettings {
@@ -31,6 +45,7 @@ export interface AgentSettings {
     welcomeMessage: string
     suggestedPrompts: string[]
   }
+  knowledge?: KnowledgeSettings
 }
 
 /**

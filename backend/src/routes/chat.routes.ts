@@ -12,7 +12,8 @@ import {
 } from '../db/modules/message/message.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
 import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
-import { DEFAULT_CONVERSATION_HISTORY_LIMIT, DEFAULT_MODEL_ID } from '../config/defaults'
+import { DEFAULT_CONVERSATION_HISTORY_LIMIT, DEFAULT_MODEL_ID, DEFAULT_KNOWLEDGE_SETTINGS } from '../config/defaults'
+import { searchKnowledge, agentHasKnowledge } from '../services/knowledge.service'
 
 /**
  * Build authentication headers for API connector
@@ -158,6 +159,88 @@ function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
 }
 
 /**
+ * Create the searchKnowledge tool for RAG
+ * @param agentId - Agent ID to search knowledge for
+ * @param topK - Number of results to return
+ * @param threshold - Minimum similarity threshold
+ * @returns AI SDK tool
+ */
+function createSearchKnowledgeTool(
+  agentId: string,
+  topK: number = 5,
+  threshold: number = 0.7
+) {
+  return tool({
+    description: 'Search the knowledge base for relevant information. Use this tool when you need to find specific information, answer questions about documents, or provide accurate details from the available knowledge.',
+    inputSchema: z.object({
+      query: z.string().describe('The search query to find relevant information'),
+    }),
+    execute: async ({ query }: { query: string }) => {
+      try {
+        const results = await searchKnowledge(agentId, query, topK, threshold)
+
+        if (results.length === 0) {
+          return {
+            found: false,
+            message: 'No relevant information found in the knowledge base.',
+            results: [],
+          }
+        }
+
+        return {
+          found: true,
+          message: `Found ${results.length} relevant result(s).`,
+          results: results.map(r => ({
+            content: r.content,
+            source: r.source,
+            relevance: Math.round(r.similarity * 100) + '%',
+          })),
+        }
+      } catch (error) {
+        console.error('[searchKnowledge] Error:', error)
+        return {
+          found: false,
+          message: 'Failed to search knowledge base.',
+          results: [],
+        }
+      }
+    },
+  })
+}
+
+/**
+ * Get relevant knowledge context for auto-inject mode
+ * @param agentId - Agent ID
+ * @param query - User message to search for
+ * @param topK - Number of chunks to inject
+ * @param threshold - Minimum similarity threshold
+ * @returns Context string to prepend to system prompt
+ */
+async function getKnowledgeContext(
+  agentId: string,
+  query: string,
+  topK: number,
+  threshold: number
+): Promise<string | null> {
+  try {
+    const results = await searchKnowledge(agentId, query, topK, threshold)
+
+    if (results.length === 0) {
+      return null
+    }
+
+    const contextParts = results.map((r, i) =>
+      `[Source ${i + 1}: ${r.source}]\n${r.content}`
+    )
+
+    return `\n\n## Relevant Knowledge\nUse the following information from the knowledge base to help answer the user's question:\n\n${contextParts.join('\n\n---\n\n')}\n\n---\n`
+  } catch (error) {
+    console.error('[getKnowledgeContext] Error:', error)
+    return null
+  }
+}
+
+/**
  * Register chat routes
  * @param fastify - Fastify instance
  */
@@ -223,6 +306,19 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
     const dbTools = await findToolsByAgentId(agentId)
     const agentTools = buildAiSdkTools(dbTools)
 
+    // Check if agent has knowledge and get settings
+    const knowledgeSettings = agent.settings?.knowledge || DEFAULT_KNOWLEDGE_SETTINGS
+    const hasKnowledge = knowledgeSettings.enabled && await agentHasKnowledge(agentId)
+
+    // Add searchKnowledge tool if knowledge is enabled and mode is 'tool'
+    if (hasKnowledge && knowledgeSettings.mode === 'tool') {
+      agentTools['searchKnowledge'] = createSearchKnowledgeTool(
+        agentId,
+        knowledgeSettings.topK,
+        knowledgeSettings.similarityThreshold
+      )
+    }
+
     // Apply conversation history limit from agent settings
     const historyLimit = agent.settings?.memory?.conversationHistoryLimit || DEFAULT_CONVERSATION_HISTORY_LIMIT
     const limitedMessages = applyHistoryLimit(messages, historyLimit)
@@ -258,10 +354,32 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
     reply.raw.setHeader('Access-Control-Allow-Origin', origin)
     reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
 
+    // Build system prompt with optional knowledge context for auto-inject mode
+    let systemPrompt = agent.systemPrompt || `You are ${agent.name}.`
+
+    if (hasKnowledge && knowledgeSettings.mode === 'auto_inject') {
+      // Get the user's latest message for context search
+      const lastUserMessage = messages[messages.length - 1]
+      if (lastUserMessage?.role === 'user') {
+        const textPart = lastUserMessage.parts?.find(p => p.type === 'text')
+        if (textPart && 'text' in textPart) {
+          const knowledgeContext = await getKnowledgeContext(
+            agentId,
+            textPart.text,
+            knowledgeSettings.topK,
+            knowledgeSettings.similarityThreshold
+          )
+          if (knowledgeContext) {
+            systemPrompt += knowledgeContext
+          }
+        }
+      }
+    }
+
     // Stream the response with history-limited messages
     const result = streamText({
       model: openrouter.chat(modelId),
-      system: agent.systemPrompt || `You are ${agent.name}.`,
+      system: systemPrompt,
       messages: await convertToModelMessages(limitedMessages),
       stopWhen: stepCountIs(25),
       tools: Object.keys(agentTools).length > 0 ? agentTools : undefined,
