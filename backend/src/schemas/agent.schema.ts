@@ -38,7 +38,7 @@ export const agentSettingsSchema = z.object({
  * Schema for creating an agent
  */
 export const createAgentSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  name: z.string().max(100, 'Name too long').optional().default(''),
   description: z.string().max(500, 'Description too long').optional(),
   modelId: z.string().uuid('Invalid model ID').optional(),
 })

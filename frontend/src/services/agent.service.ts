@@ -42,7 +42,7 @@ export interface Agent {
  * Create agent input
  */
 export interface CreateAgentInput {
-  name: string
+  name?: string
   description?: string
   modelId?: string
 }

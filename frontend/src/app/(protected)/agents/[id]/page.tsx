@@ -26,12 +26,18 @@ function EditAgentPageInner({ id }: { id: string }) {
 
   const [publishState, setPublishState] = useState<PublishState | null>(null)
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
+  const [initialPrompt, setInitialPrompt] = useState<string | undefined>(undefined)
 
   // Check URL params on mount
   useEffect(() => {
     const builderParam = searchParams.get('builder')
+    const promptParam = searchParams.get('prompt')
+
     if (builderParam === 'true') {
       setIsBuilderOpen(true)
+      if (promptParam) {
+        setInitialPrompt(decodeURIComponent(promptParam))
+      }
     }
   }, [searchParams])
 
@@ -104,6 +110,7 @@ function EditAgentPageInner({ id }: { id: string }) {
         onClose={() => setIsBuilderOpen(false)}
         onAgentUpdate={handleAgentUpdate}
         agentId={id}
+        initialMessage={initialPrompt}
       />
     </div>
   )

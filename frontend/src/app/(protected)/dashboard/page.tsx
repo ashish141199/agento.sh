@@ -6,15 +6,20 @@ import { useRouter } from 'next/navigation'
 import { AgentsTable } from '@/components/agents/agents-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, ArrowUp, Search } from 'lucide-react'
+import { Plus, ArrowUp, Search, Loader2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth.store'
+import { agentService } from '@/services/agent.service'
+import { notification } from '@/lib/notifications'
 
 /**
  * Dashboard page - displays agents table with AI builder prompt
  */
 export default function DashboardPage() {
   const router = useRouter()
+  const { accessToken } = useAuthStore()
   const [builderPrompt, setBuilderPrompt] = useState('')
   const [agentSearch, setAgentSearch] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
 
   // Check for stored prompt from landing page (after login redirect)
   useEffect(() => {
@@ -26,13 +31,22 @@ export default function DashboardPage() {
     }
   }, [])
 
-  const handleBuilderSubmit = (e: React.FormEvent) => {
+  const handleBuilderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!builderPrompt.trim()) return
+    if (!builderPrompt.trim() || isCreating || !accessToken) return
 
-    // Navigate to create page with the prompt as a query parameter
-    const encodedPrompt = encodeURIComponent(builderPrompt.trim())
-    router.push(`/agents/create?builder=true&prompt=${encodedPrompt}`)
+    setIsCreating(true)
+    try {
+      // Create agent first, then redirect to edit page with builder
+      const response = await agentService.create({}, accessToken)
+      if (response.data?.agent) {
+        const encodedPrompt = encodeURIComponent(builderPrompt.trim())
+        router.push(`/agents/${response.data.agent.id}?builder=true&prompt=${encodedPrompt}`)
+      }
+    } catch (error) {
+      notification.error('Failed to create agent')
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -48,8 +62,9 @@ export default function DashboardPage() {
               value={builderPrompt}
               onChange={(e) => setBuilderPrompt(e.target.value)}
               placeholder="Type a message or click a suggestion..."
-              rows={2}
-              className="w-full px-4 py-3 pr-14 text-base bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 focus:border-transparent placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+              rows={3}
+              disabled={isCreating}
+              className="w-full px-4 py-4 pr-14 text-base bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 focus:border-transparent placeholder:text-neutral-400 dark:placeholder:text-neutral-500 disabled:opacity-50"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -59,10 +74,14 @@ export default function DashboardPage() {
             />
             <button
               type="submit"
-              disabled={!builderPrompt.trim()}
-              className="absolute right-3 bottom-3 p-2 rounded-full bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+              disabled={!builderPrompt.trim() || isCreating}
+              className="absolute right-3 bottom-3 p-2.5 rounded-full bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
             >
-              <ArrowUp className="h-4 w-4" />
+              {isCreating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowUp className="h-5 w-5" />
+              )}
             </button>
           </div>
         </form>
