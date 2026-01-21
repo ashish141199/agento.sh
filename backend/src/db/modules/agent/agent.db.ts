@@ -1,4 +1,4 @@
-import { eq, desc, asc, ilike, or, and } from 'drizzle-orm'
+import { eq, desc, asc, ilike, or, and, isNull } from 'drizzle-orm'
 import { db } from '../../index'
 import { agents, models, type Agent, type InsertAgent, type Model, type InstructionsConfig } from '../../schema'
 
@@ -42,7 +42,7 @@ export function generateSystemPrompt(
 }
 
 /**
- * Find agent by ID
+ * Find agent by ID (excludes soft-deleted agents)
  * @param id - The agent ID
  * @returns The agent or undefined
  */
@@ -50,13 +50,13 @@ export async function findAgentById(id: string): Promise<Agent | undefined> {
   const result = await db
     .select()
     .from(agents)
-    .where(eq(agents.id, id))
+    .where(and(eq(agents.id, id), isNull(agents.deletedAt)))
     .limit(1)
   return result[0]
 }
 
 /**
- * Find agent by ID with model details
+ * Find agent by ID with model details (excludes soft-deleted agents)
  * @param id - The agent ID
  * @returns The agent with model details or undefined
  */
@@ -78,6 +78,7 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
       embedConfig: agents.embedConfig,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
+      deletedAt: agents.deletedAt,
       model: {
         id: models.id,
         modelId: models.modelId,
@@ -88,7 +89,7 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
     })
     .from(agents)
     .leftJoin(models, eq(agents.modelId, models.id))
-    .where(eq(agents.id, id))
+    .where(and(eq(agents.id, id), isNull(agents.deletedAt)))
     .limit(1)
 
   if (!result[0]) return undefined
@@ -100,7 +101,7 @@ export async function findAgentByIdWithModel(id: string): Promise<AgentWithModel
 }
 
 /**
- * Find all agents for a user with optional search and sort
+ * Find all agents for a user with optional search and sort (excludes soft-deleted agents)
  * Includes model details for each agent
  * @param userId - The user ID
  * @param options - Search and sort options
@@ -116,7 +117,7 @@ export async function findAgentsByUserId(
 ): Promise<AgentWithModel[]> {
   const { search, sortBy = 'createdAt', sortOrder = 'desc' } = options || {}
 
-  const conditions = [eq(agents.userId, userId)]
+  const conditions = [eq(agents.userId, userId), isNull(agents.deletedAt)]
 
   if (search) {
     const searchPattern = `%${search}%`
@@ -153,6 +154,7 @@ export async function findAgentsByUserId(
       embedConfig: agents.embedConfig,
       createdAt: agents.createdAt,
       updatedAt: agents.updatedAt,
+      deletedAt: agents.deletedAt,
       model: {
         id: models.id,
         modelId: models.modelId,
@@ -207,20 +209,24 @@ export async function updateAgent(
 }
 
 /**
- * Delete agent by ID
+ * Soft delete agent by ID (sets deletedAt timestamp)
  * @param id - The agent ID
  * @returns True if deleted, false if not found
  */
 export async function deleteAgent(id: string): Promise<boolean> {
   const result = await db
-    .delete(agents)
-    .where(eq(agents.id, id))
+    .update(agents)
+    .set({
+      deletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(agents.id, id), isNull(agents.deletedAt)))
     .returning()
   return result.length > 0
 }
 
 /**
- * Check if agent belongs to user
+ * Check if agent belongs to user (excludes soft-deleted agents)
  * @param agentId - The agent ID
  * @param userId - The user ID
  * @returns True if agent belongs to user
@@ -229,14 +235,7 @@ export async function agentBelongsToUser(
   agentId: string,
   userId: string
 ): Promise<boolean> {
-  const result = await db
-    .select({ id: agents.id })
-    .from(agents)
-    .where(eq(agents.id, agentId))
-    .limit(1)
-
-  if (!result[0]) return false
-
   const agent = await findAgentById(agentId)
-  return agent?.userId === userId
+  if (!agent) return false
+  return agent.userId === userId
 }

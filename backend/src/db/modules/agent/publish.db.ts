@@ -1,4 +1,4 @@
-import { eq, ilike } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { createHash } from 'crypto'
 import { db } from '../../index'
 import { agents, type Agent, type EmbedConfig } from '../../schema'
@@ -20,14 +20,14 @@ function slugify(name: string): string {
 }
 
 /**
- * Generate a unique slug for an agent
+ * Generate a unique slug for an agent (excludes soft-deleted agents, allowing slug reuse)
  * @param name - The agent name
  * @returns A unique slug
  */
 export async function generateUniqueSlug(name: string): Promise<string> {
   const baseSlug = slugify(name)
 
-  // Check if base slug exists
+  // Check if base slug exists among non-deleted agents
   let slug = baseSlug
   let counter = 1
 
@@ -35,7 +35,7 @@ export async function generateUniqueSlug(name: string): Promise<string> {
     const existing = await db
       .select({ id: agents.id })
       .from(agents)
-      .where(eq(agents.slug, slug))
+      .where(and(eq(agents.slug, slug), isNull(agents.deletedAt)))
       .limit(1)
 
     if (existing.length === 0) {
@@ -172,7 +172,7 @@ export async function updateEmbedConfig(
 }
 
 /**
- * Find an agent by its slug
+ * Find an agent by its slug (excludes soft-deleted agents)
  * @param slug - The agent slug
  * @returns The agent or undefined
  */
@@ -180,7 +180,7 @@ export async function findAgentBySlug(slug: string): Promise<Agent | undefined> 
   const result = await db
     .select()
     .from(agents)
-    .where(eq(agents.slug, slug))
+    .where(and(eq(agents.slug, slug), isNull(agents.deletedAt)))
     .limit(1)
 
   return result[0]

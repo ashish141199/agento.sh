@@ -85,6 +85,9 @@ export const agents = pgTable('agents', {
 
   /** Agent settings (memory, chat) */
   settings: jsonb('settings').$type<AgentSettings>(),
+
+  /** Timestamp when agent was soft deleted (null = not deleted) */
+  deletedAt: timestamp('deleted_at'),
 })
 
 /**

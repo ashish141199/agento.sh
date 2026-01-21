@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { Sparkles, Wrench, ArrowUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth.store'
@@ -14,6 +15,7 @@ import { notification } from '@/lib/notifications'
  */
 export default function NewAgentPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { accessToken } = useAuthStore()
   const [aiPrompt, setAiPrompt] = useState('')
   const [selectedOption, setSelectedOption] = useState<'manual' | 'ai' | null>(null)
@@ -26,6 +28,7 @@ export default function NewAgentPage() {
     try {
       const response = await agentService.create({}, accessToken)
       if (response.data?.agent) {
+        queryClient.invalidateQueries({ queryKey: ['agents'] })
         router.push(`/agents/${response.data.agent.id}`)
       }
     } catch (error) {
@@ -42,6 +45,7 @@ export default function NewAgentPage() {
     try {
       const response = await agentService.create({}, accessToken)
       if (response.data?.agent) {
+        queryClient.invalidateQueries({ queryKey: ['agents'] })
         const encodedPrompt = encodeURIComponent(aiPrompt.trim())
         router.push(`/agents/${response.data.agent.id}?builder=true&prompt=${encodedPrompt}`)
       }

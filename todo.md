@@ -1,3 +1,1 @@
-- [ ] also, when in the agent builder, when a tool has been successfully called, see when the tool is being called, I can see that it is loading. But when the tool has been successfully called, it still is in loading. So we have missed something. 
-
-Do check the code, which we have. Also, make sure that we use chat from Vercel AI SDK properly. If you have any questions about the documentation, you can check the context7 MCP. 
+- [ ] 
