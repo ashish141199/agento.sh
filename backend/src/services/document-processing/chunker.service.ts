@@ -697,6 +697,7 @@ export function chunkTabular(
 /**
  * Chunk code files by logical units (functions, classes, etc.)
  * Keeps complete code blocks together, only splitting very large blocks
+ * When splitting is necessary, tries to split at logical boundaries (blank lines, closing braces)
  *
  * @param content - Code content
  * @param source - Source identifier
@@ -734,52 +735,101 @@ export function chunkCode(
       })
       charOffset += sectionContent.length
     } else {
-      // Section too large - split by line breaks, preserving structure
-      const lines = sectionContent.split('\n')
-      let currentChunk: string[] = []
-      let currentLength = 0
+      // Section too large - split at logical boundaries
+      const subChunks = splitCodeAtLogicalBoundaries(sectionContent, maxChunkSize, minChunkSize)
 
-      for (const line of lines) {
-        if (currentLength > 0 && currentLength + line.length + 1 > maxChunkSize) {
-          // Save current chunk
-          const chunkContent = currentChunk.join('\n')
-          if (chunkContent.length >= minChunkSize) {
-            chunks.push({
-              index: chunks.length,
-              content: chunkContent,
-              length: chunkContent.length,
-              metadata: {
-                source,
-                section: section.title ? `${section.title} (continued)` : undefined,
-                charStart: charOffset,
-                charEnd: charOffset + chunkContent.length,
-              },
-            })
-            charOffset += chunkContent.length
-          }
-          currentChunk = []
-          currentLength = 0
-        }
-
-        currentChunk.push(line)
-        currentLength += line.length + 1
-      }
-
-      // Save remaining
-      if (currentChunk.length > 0) {
-        const chunkContent = currentChunk.join('\n')
+      for (let i = 0; i < subChunks.length; i++) {
+        const chunkContent = subChunks[i]!
+        const isFirst = i === 0
         chunks.push({
           index: chunks.length,
           content: chunkContent,
           length: chunkContent.length,
           metadata: {
             source,
-            section: section.title,
+            section: isFirst ? section.title : (section.title ? `${section.title} (continued)` : undefined),
             charStart: charOffset,
             charEnd: charOffset + chunkContent.length,
           },
         })
         charOffset += chunkContent.length
+      }
+    }
+  }
+
+  return chunks
+}
+
+/**
+ * Split code at logical boundaries (blank lines, after closing braces)
+ * Prioritizes keeping code blocks intact
+ */
+function splitCodeAtLogicalBoundaries(
+  content: string,
+  maxChunkSize: number,
+  minChunkSize: number
+): string[] {
+  const chunks: string[] = []
+  const lines = content.split('\n')
+  let currentChunk: string[] = []
+  let currentLength = 0
+
+  // Track brace depth to find good split points
+  let braceDepth = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const trimmedLine = line.trim()
+
+    // Update brace depth
+    for (const char of line) {
+      if (char === '{') braceDepth++
+      if (char === '}') braceDepth--
+    }
+
+    // Check if we need to split
+    if (currentLength > 0 && currentLength + line.length + 1 > maxChunkSize) {
+      // Try to find a better split point by looking back
+      let splitIndex = currentChunk.length
+
+      // Look for a good split point (blank line or closing brace at depth 0)
+      for (let j = currentChunk.length - 1; j >= Math.max(0, currentChunk.length - 20); j--) {
+        const prevLine = currentChunk[j]!.trim()
+        // Good split points: blank line, line ending with }, line ending with ;
+        if (prevLine === '' || prevLine.endsWith('}') || prevLine.endsWith(';')) {
+          // Check if this gives us a chunk of reasonable size
+          const potentialChunk = currentChunk.slice(0, j + 1).join('\n')
+          if (potentialChunk.length >= minChunkSize) {
+            splitIndex = j + 1
+            break
+          }
+        }
+      }
+
+      // Save chunk up to split point
+      const chunkContent = currentChunk.slice(0, splitIndex).join('\n').trim()
+      if (chunkContent.length >= minChunkSize) {
+        chunks.push(chunkContent)
+      }
+
+      // Keep remaining lines for next chunk
+      currentChunk = currentChunk.slice(splitIndex)
+      currentLength = currentChunk.join('\n').length
+    }
+
+    currentChunk.push(line)
+    currentLength += line.length + 1
+  }
+
+  // Save remaining
+  if (currentChunk.length > 0) {
+    const chunkContent = currentChunk.join('\n').trim()
+    if (chunkContent.length > 0) {
+      // If too small, merge with previous chunk
+      if (chunkContent.length < minChunkSize && chunks.length > 0) {
+        chunks[chunks.length - 1] += '\n' + chunkContent
+      } else {
+        chunks.push(chunkContent)
       }
     }
   }

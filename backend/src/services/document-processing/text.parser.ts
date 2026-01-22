@@ -1,9 +1,10 @@
 /**
  * Text document parser
- * Handles plain text, markdown, JSON, and code files (TypeScript, JavaScript)
+ * Handles plain text, markdown, JSON, HTML, XML, YAML, and code files
  */
 
 import type { DocumentParser, ParsedDocument, DocumentSection } from './types'
+import { htmlToMarkdown } from './html-to-markdown'
 
 /**
  * Text parser implementation
@@ -18,6 +19,23 @@ export class TextParser implements DocumentParser {
     'text/javascript',
     'application/typescript',
     'application/javascript',
+    // HTML
+    'text/html',
+    // XML
+    'text/xml',
+    'application/xml',
+    // YAML
+    'text/yaml',
+    'application/x-yaml',
+    // Additional code file types
+    'text/x-python',
+    'text/x-java',
+    'text/x-go',
+    'text/x-ruby',
+    'text/x-php',
+    'text/x-c',
+    'text/x-cpp',
+    'text/x-rust',
   ]
 
   /**
@@ -53,7 +71,22 @@ export class TextParser implements DocumentParser {
         const result = this.parseMarkdown(rawContent, fileName)
         content = result.content
         sections = result.sections
-      } else if (mimeType === 'text/typescript' || mimeType === 'text/javascript') {
+      } else if (mimeType === 'text/html') {
+        // Convert HTML to markdown then parse as markdown
+        const markdown = htmlToMarkdown(rawContent)
+        const result = this.parseMarkdown(markdown, fileName)
+        content = result.content
+        sections = result.sections
+      } else if (mimeType === 'text/xml' || mimeType === 'application/xml') {
+        // Parse XML - extract text content, preserve structure
+        const result = this.parseXml(rawContent, fileName)
+        content = result.content
+        sections = result.sections
+      } else if (mimeType === 'text/yaml' || mimeType === 'application/x-yaml') {
+        // Parse YAML as structured text
+        content = this.cleanText(rawContent)
+        sections = this.extractTextSections(content)
+      } else if (this.isCodeFile(mimeType)) {
         // Parse code files - extract code blocks and comments
         const result = this.parseCode(rawContent, fileName)
         content = result.content
@@ -425,6 +458,34 @@ export class TextParser implements DocumentParser {
       case 'js':
       case 'jsx':
         return 'text/javascript'
+      case 'html':
+      case 'htm':
+        return 'text/html'
+      case 'xml':
+        return 'text/xml'
+      case 'yaml':
+      case 'yml':
+        return 'text/yaml'
+      case 'py':
+        return 'text/x-python'
+      case 'java':
+        return 'text/x-java'
+      case 'go':
+        return 'text/x-go'
+      case 'rb':
+        return 'text/x-ruby'
+      case 'php':
+        return 'text/x-php'
+      case 'c':
+      case 'h':
+        return 'text/x-c'
+      case 'cpp':
+      case 'cc':
+      case 'cxx':
+      case 'hpp':
+        return 'text/x-cpp'
+      case 'rs':
+        return 'text/x-rust'
       default:
         return 'text/plain'
     }
@@ -437,6 +498,62 @@ export class TextParser implements DocumentParser {
    */
   private countWords(text: string): number {
     return text.split(/\s+/).filter(word => word.length > 0).length
+  }
+
+  /**
+   * Check if MIME type is a code file
+   * @param mimeType - MIME type to check
+   * @returns True if code file
+   */
+  private isCodeFile(mimeType: string): boolean {
+    return [
+      'text/typescript',
+      'text/javascript',
+      'application/typescript',
+      'application/javascript',
+      'text/x-python',
+      'text/x-java',
+      'text/x-go',
+      'text/x-ruby',
+      'text/x-php',
+      'text/x-c',
+      'text/x-cpp',
+      'text/x-rust',
+    ].includes(mimeType)
+  }
+
+  /**
+   * Parse XML content - extract text while preserving structure info
+   * @param rawContent - Raw XML string
+   * @param fileName - File name
+   * @returns Parsed content and sections
+   */
+  private parseXml(
+    rawContent: string,
+    fileName: string
+  ): { content: string; sections: DocumentSection[] } {
+    // Simple XML text extraction - strip tags but preserve text
+    const content = rawContent
+      // Remove XML declaration and processing instructions
+      .replace(/<\?[^?]*\?>/g, '')
+      // Remove comments
+      .replace(/<!--[\s\S]*?-->/g, '')
+      // Remove CDATA wrappers but keep content
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+      // Replace closing tags with newline
+      .replace(/<\/[^>]+>/g, '\n')
+      // Replace opening tags with space
+      .replace(/<[^>]+>/g, ' ')
+      // Clean up whitespace
+      .replace(/[ \t]+/g, ' ')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n')
+
+    const sections = this.extractTextSections(content)
+
+    return { content, sections }
   }
 }
 

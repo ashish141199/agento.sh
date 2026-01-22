@@ -7,6 +7,10 @@ import { pdfParser } from './pdf.parser'
 import { excelParser } from './excel.parser'
 import { textParser } from './text.parser'
 import { docxParser } from './docx.parser'
+import { officeDocParser } from './office.parser'
+import { epubParser } from './epub.parser'
+import { docParser } from './doc.parser'
+import { zipParser } from './zip.parser'
 import { websiteCrawler, WebsiteCrawler } from './website.crawler'
 import {
   textChunker,
@@ -25,7 +29,7 @@ import type {
 } from './types'
 
 /** All available parsers */
-const parsers: DocumentParser[] = [pdfParser, excelParser, docxParser, textParser]
+const parsers: DocumentParser[] = [pdfParser, excelParser, docxParser, docParser, officeDocParser, epubParser, zipParser, textParser]
 
 /**
  * Get appropriate parser for a MIME type
@@ -88,6 +92,14 @@ const CODE_MIME_TYPES = [
   'text/javascript',
   'application/typescript',
   'application/javascript',
+  'text/x-python',
+  'text/x-java',
+  'text/x-go',
+  'text/x-ruby',
+  'text/x-php',
+  'text/x-c',
+  'text/x-cpp',
+  'text/x-rust',
 ]
 
 /**

@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/bun": "latest",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.5",
@@ -31,16 +32,20 @@
     "@fastify/jwt": "^10.0.0",
     "@fastify/multipart": "^9.4.0",
     "@openrouter/ai-sdk-provider": "^1.5.4",
+    "adm-zip": "^0.5.16",
     "ai": "^6.0.39",
     "cheerio": "^1.1.2",
     "drizzle-orm": "^0.45.1",
+    "epub2": "^3.0.2",
     "fastify": "^5.7.1",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.11.0",
     "nodemailer": "^7.0.12",
+    "officeparser": "^6.0.4",
     "pdf-parse": "^2.4.5",
     "postgres": "^3.4.8",
     "turndown": "^7.2.2",
+    "word-extractor": "^1.0.4",
     "xlsx": "^0.18.5",
     "zod": "^4.3.5"
   }

@@ -17,11 +17,27 @@ Upload/Crawl → Parse → Chunk → Embed → Store → Search
 |------|-----------|--------|-------------------|
 | PDF | `application/pdf` | `pdf.parser.ts` | Semantic (sentences) |
 | Word | `.docx` | `docx.parser.ts` | Semantic (sentences) |
+| Word (legacy) | `.doc` | `doc.parser.ts` | Semantic (paragraphs) |
+| ZIP | `.zip` | `zip.parser.ts` | Extracts and processes contained files |
+| PowerPoint | `.pptx` | `office.parser.ts` | Semantic (paragraphs) |
+| RTF | `.rtf` | `office.parser.ts` | Semantic (paragraphs) |
+| EPUB | `.epub` | `epub.parser.ts` | Section-based (chapters) |
 | Excel | `.xlsx`, `.xls` | `excel.parser.ts` | Row-based (tabular) |
 | CSV | `text/csv` | `excel.parser.ts` | Row-based (tabular) |
 | Markdown | `text/markdown` | `text.parser.ts` | Section-based (headers) |
+| HTML | `text/html` | `text.parser.ts` | Section-based (converted to markdown) |
+| XML | `text/xml` | `text.parser.ts` | Semantic (text extraction) |
+| YAML | `text/yaml` | `text.parser.ts` | Semantic (paragraphs) |
 | TypeScript | `.ts`, `.tsx` | `text.parser.ts` | Code-aware (functions/classes) |
 | JavaScript | `.js`, `.jsx` | `text.parser.ts` | Code-aware (functions/classes) |
+| Python | `.py` | `text.parser.ts` | Code-aware (functions/classes) |
+| Go | `.go` | `text.parser.ts` | Code-aware (functions/classes) |
+| Java | `.java` | `text.parser.ts` | Code-aware (functions/classes) |
+| Ruby | `.rb` | `text.parser.ts` | Code-aware (functions/classes) |
+| PHP | `.php` | `text.parser.ts` | Code-aware (functions/classes) |
+| C | `.c`, `.h` | `text.parser.ts` | Code-aware (functions/classes) |
+| C++ | `.cpp`, `.hpp` | `text.parser.ts` | Code-aware (functions/classes) |
+| Rust | `.rs` | `text.parser.ts` | Code-aware (functions/classes) |
 | JSON | `application/json` | `text.parser.ts` | Semantic |
 | Plain Text | `text/plain` | `text.parser.ts` | Semantic (paragraphs) |
 | Website | HTML | `website.crawler.ts` | Section-based (markdown) |
@@ -181,9 +197,13 @@ src/services/
 │   ├── index.ts              # Main entry, parseAndChunk()
 │   ├── chunker.service.ts    # All chunking strategies
 │   ├── pdf.parser.ts         # PDF extraction
-│   ├── docx.parser.ts        # Word extraction
+│   ├── docx.parser.ts        # Word (.docx) extraction
+│   ├── doc.parser.ts         # Legacy Word (.doc) extraction
+│   ├── zip.parser.ts         # ZIP archive extraction
+│   ├── office.parser.ts      # PowerPoint/RTF extraction
+│   ├── epub.parser.ts        # EPUB extraction
 │   ├── excel.parser.ts       # Excel/CSV extraction
-│   ├── text.parser.ts        # Text/code extraction
+│   ├── text.parser.ts        # Text/HTML/XML/YAML/code extraction
 │   └── website.crawler.ts    # Web crawling
 ├── embedding.service.ts      # OpenAI embeddings
 └── knowledge.service.ts      # Orchestration
@@ -200,6 +220,10 @@ src/config/
 
 - `pdf-parse` - PDF text extraction
 - `mammoth` - DOCX text extraction
+- `word-extractor` - Legacy DOC text extraction
+- `adm-zip` - ZIP archive extraction
+- `officeparser` - PowerPoint (PPTX) and RTF text extraction
+- `epub2` - EPUB text extraction
 - `xlsx` - Excel/CSV parsing
 - `cheerio` + `turndown` - HTML to Markdown
 - `pgvector` - PostgreSQL vector extension

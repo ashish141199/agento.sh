@@ -1,0 +1,45 @@
+# Test YAML Configuration File
+# This file tests YAML parsing and chunking
+
+application:
+  name: Knowledge System
+  version: 1.0.0
+  description: A RAG system for document processing
+
+database:
+  host: localhost
+  port: 5432
+  name: knowledge_db
+  ssl: true
+  pool:
+    min: 2
+    max: 10
+
+features:
+  - name: Document Parsing
+    enabled: true
+    supported_types:
+      - pdf
+      - docx
+      - xlsx
+      - markdown
+
+  - name: Vector Search
+    enabled: true
+    config:
+      dimensions: 1536
+      similarity: cosine
+
+  - name: Website Crawling
+    enabled: true
+    config:
+      max_pages: 100
+      max_depth: 10
+
+logging:
+  level: info
+  format: json
+  outputs:
+    - type: console
+    - type: file
+      path: /var/log/app.log

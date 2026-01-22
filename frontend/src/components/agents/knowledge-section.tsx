@@ -34,12 +34,32 @@ const ACCEPTED_FILE_TYPES = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
   'application/vnd.ms-excel': ['.xls'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+  'application/zip': ['.zip'],
+  'application/x-zip-compressed': ['.zip'],
+  'application/rtf': ['.rtf'],
+  'text/rtf': ['.rtf'],
+  'application/epub+zip': ['.epub'],
   'text/plain': ['.txt'],
   'text/csv': ['.csv'],
   'text/markdown': ['.md'],
+  'text/html': ['.html', '.htm'],
+  'text/xml': ['.xml'],
+  'application/xml': ['.xml'],
+  'text/yaml': ['.yaml', '.yml'],
+  'application/x-yaml': ['.yaml', '.yml'],
   'text/typescript': ['.ts', '.tsx'],
   'text/javascript': ['.js', '.jsx'],
   'application/json': ['.json'],
+  'text/x-python': ['.py'],
+  'text/x-java': ['.java'],
+  'text/x-go': ['.go'],
+  'text/x-ruby': ['.rb'],
+  'text/x-php': ['.php'],
+  'text/x-c': ['.c', '.h'],
+  'text/x-cpp': ['.cpp', '.cc', '.cxx', '.hpp'],
+  'text/x-rust': ['.rs'],
 }
 
 /**
@@ -401,7 +421,7 @@ export function KnowledgeSection({ agentId, disabled = false }: KnowledgeSection
             {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
           </p>
           <p className="text-xs text-neutral-500">
-            PDF, Word, Excel, CSV, TXT, MD, TS, JS, JSON - Max 5MB per file
+            PDF, Word, Excel, PowerPoint, EPUB, RTF, ZIP, CSV, HTML, XML, YAML, code files - Max 5MB
           </p>
         </div>
       </div>
