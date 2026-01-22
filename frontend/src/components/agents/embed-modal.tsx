@@ -31,11 +31,8 @@ interface EmbedModalProps {
 }
 
 const POSITION_OPTIONS = [
-  { value: 'fullscreen', label: 'Fullscreen' },
-  { value: 'bottom-right', label: 'Bottom Right' },
-  { value: 'bottom-left', label: 'Bottom Left' },
-  { value: 'top-right', label: 'Top Right' },
-  { value: 'top-left', label: 'Top Left' },
+  { value: 'expanded', label: 'Expanded (fit to parent)' },
+  { value: 'widget', label: 'Widget (bottom-right)' },
 ] as const
 
 const THEME_OPTIONS = [
@@ -153,7 +150,7 @@ export function EmbedModal({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Note: The embed script is currently a placeholder and will be implemented in a future update.
+            Add this script to your website to embed the chat interface.
           </p>
         </div>
 

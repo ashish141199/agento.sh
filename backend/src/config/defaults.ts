@@ -53,7 +53,7 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
 /**
  * Default embed widget position
  */
-export const DEFAULT_EMBED_POSITION: EmbedConfig['position'] = 'fullscreen'
+export const DEFAULT_EMBED_POSITION: EmbedConfig['position'] = 'expanded'
 
 /**
  * Default embed widget theme

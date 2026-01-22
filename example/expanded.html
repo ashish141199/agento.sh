@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expanded Embed Example - Autive</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f4f4f5;
+      min-height: 100vh;
+    }
+    header {
+      background: white;
+      border-bottom: 1px solid #e4e4e7;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 600;
+      color: #18181b;
+    }
+    .back-link {
+      color: #71717a;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back-link:hover {
+      color: #18181b;
+    }
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    h1 {
+      font-size: 24px;
+      color: #18181b;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #71717a;
+      margin-bottom: 24px;
+    }
+    .chat-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      height: 600px;
+      overflow: hidden;
+    }
+    .no-agent {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #71717a;
+      text-align: center;
+      padding: 40px;
+    }
+    .no-agent h2 {
+      font-size: 18px;
+      color: #18181b;
+      margin-bottom: 8px;
+    }
+    .no-agent p {
+      margin-bottom: 16px;
+    }
+    .no-agent a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    .no-agent a:hover {
+      text-decoration: underline;
+    }
+    .code-block {
+      margin-top: 32px;
+      background: #18181b;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    .code-block pre {
+      color: #a1a1aa;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .code-block .tag {
+      color: #f472b6;
+    }
+    .code-block .attr {
+      color: #a78bfa;
+    }
+    .code-block .value {
+      color: #34d399;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Acme Support</div>
+    <a href="index.html" class="back-link">Back to Examples</a>
+  </header>
+
+  <main>
+    <h1>Chat with our Support Agent</h1>
+    <p class="subtitle">Get instant help from our AI-powered support assistant.</p>
+
+    <div class="chat-container" id="chat-container">
+      <div class="no-agent" id="no-agent-message">
+        <h2>No Agent ID or Slug Provided</h2>
+        <p>Please go back and enter your Agent ID or Slug to see the embed in action.</p>
+        <a href="index.html">Go back to enter Agent ID or Slug</a>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <pre><span class="tag">&lt;div</span> <span class="attr">class</span>=<span class="value">"chat-container"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;script</span>
+    <span class="attr">src</span>=<span class="value">"http://localhost:3000/embed.js"</span>
+    <span class="attr">data-agent</span>=<span class="value">"<span id="code-agent">YOUR_AGENT_ID_OR_SLUG</span>"</span>
+    <span class="attr">data-position</span>=<span class="value">"expanded"</span>
+    <span class="attr">data-theme</span>=<span class="value">"light"</span>
+    <span class="attr">async</span>
+  <span class="tag">&gt;&lt;/script&gt;</span>
+<span class="tag">&lt;/div&gt;</span></pre>
+    </div>
+  </main>
+
+  <script>
+    // Get agent (ID or slug) and theme from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const agent = urlParams.get('agent');
+    const theme = urlParams.get('theme') || 'light';
+
+    if (agent) {
+      // Hide the no-agent message
+      document.getElementById('no-agent-message').style.display = 'none';
+
+      // Update the code block to show the actual agent
+      document.getElementById('code-agent').textContent = agent;
+
+      // Dynamically inject the embed script
+      const script = document.createElement('script');
+      script.src = 'http://localhost:3000/embed.js';
+      script.setAttribute('data-agent', agent);
+      script.setAttribute('data-position', 'expanded');
+      script.setAttribute('data-theme', theme);
+      script.async = true;
+      document.getElementById('chat-container').appendChild(script);
+    }
+  </script>
+</body>
+</html>

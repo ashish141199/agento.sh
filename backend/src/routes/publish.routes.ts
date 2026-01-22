@@ -6,7 +6,7 @@ import {
   unpublishAgent,
   getPublishStatus,
   updateEmbedConfig,
-  findAgentBySlug,
+  findAgentByIdOrSlug,
 } from '../db/modules/agent/publish.db'
 import { findToolsByAgentId } from '../db/modules/tool/tool.db'
 import { findModelById } from '../db/modules/model/model.db'
@@ -210,13 +210,14 @@ export async function publishRoutes(fastify: FastifyInstance): Promise<void> {
   })
 
   /**
-   * Get a published agent by slug (PUBLIC - no auth required)
-   * GET /chat/:slug
+   * Get a published agent by ID or slug (PUBLIC - no auth required)
+   * GET /chat/:identifier
+   * Accepts either an agent UUID or a slug
    */
   fastify.get('/chat/:slug', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { slug } = request.params as { slug: string }
+    const { slug: identifier } = request.params as { slug: string }
 
-    const agent = await findAgentBySlug(slug)
+    const agent = await findAgentByIdOrSlug(identifier)
 
     if (!agent) {
       return reply.status(404).send({

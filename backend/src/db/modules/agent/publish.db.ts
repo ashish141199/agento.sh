@@ -185,3 +185,38 @@ export async function findAgentBySlug(slug: string): Promise<Agent | undefined> 
 
   return result[0]
 }
+
+/**
+ * Check if a string is a valid UUID
+ * @param str - The string to check
+ * @returns True if the string is a valid UUID
+ */
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
+/**
+ * Find an agent by either ID or slug (excludes soft-deleted agents)
+ * If the identifier looks like a UUID, it will try to find by ID first
+ * Otherwise, it will find by slug
+ * @param identifier - The agent ID or slug
+ * @returns The agent or undefined
+ */
+export async function findAgentByIdOrSlug(identifier: string): Promise<Agent | undefined> {
+  // If it looks like a UUID, try to find by ID first
+  if (isUUID(identifier)) {
+    const result = await db
+      .select()
+      .from(agents)
+      .where(and(eq(agents.id, identifier), isNull(agents.deletedAt)))
+      .limit(1)
+
+    if (result[0]) {
+      return result[0]
+    }
+  }
+
+  // Otherwise (or if ID not found), try to find by slug
+  return findAgentBySlug(identifier)
+}

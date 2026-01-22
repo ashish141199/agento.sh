@@ -3,7 +3,7 @@
 import { use, useState, useCallback, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Sparkles, MoreVertical, Trash2 } from 'lucide-react'
+import { ArrowLeft, Sparkles, MoreVertical, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -130,6 +130,15 @@ function EditAgentPageInner({ id }: { id: string }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(id)
+                    notification.success('Agent ID copied to clipboard')
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy Agent ID
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}

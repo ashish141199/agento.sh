@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Embed Example - Autive</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f4f4f5;
+      min-height: 100vh;
+    }
+    header {
+      background: white;
+      border-bottom: 1px solid #e4e4e7;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 600;
+      color: #18181b;
+    }
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+    nav a {
+      color: #71717a;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover {
+      color: #18181b;
+    }
+    .hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 80px 24px;
+      text-align: center;
+      color: white;
+    }
+    .hero h1 {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 20px;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero-cta {
+      display: inline-block;
+      background: white;
+      color: #667eea;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 0.2s;
+    }
+    .hero-cta:hover {
+      transform: translateY(-2px);
+    }
+    .features {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 32px;
+    }
+    .feature {
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: #f4f4f5;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+    .feature h3 {
+      font-size: 18px;
+      color: #18181b;
+      margin-bottom: 8px;
+    }
+    .feature p {
+      color: #71717a;
+      line-height: 1.6;
+    }
+    .code-section {
+      background: white;
+      padding: 60px 24px;
+      border-top: 1px solid #e4e4e7;
+    }
+    .code-section h2 {
+      text-align: center;
+      font-size: 24px;
+      color: #18181b;
+      margin-bottom: 8px;
+    }
+    .code-section > p {
+      text-align: center;
+      color: #71717a;
+      margin-bottom: 32px;
+    }
+    .code-block {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #18181b;
+      border-radius: 12px;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    .code-block pre {
+      color: #a1a1aa;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .code-block .tag {
+      color: #f472b6;
+    }
+    .code-block .attr {
+      color: #a78bfa;
+    }
+    .code-block .value {
+      color: #34d399;
+    }
+    .code-block .comment {
+      color: #52525b;
+    }
+    footer {
+      background: #18181b;
+      color: #71717a;
+      text-align: center;
+      padding: 24px;
+      font-size: 14px;
+    }
+    .widget-hint {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      background: #18181b;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      animation: bounce 2s infinite;
+      z-index: 999997;
+      display: none;
+    }
+    .widget-hint.visible {
+      display: block;
+    }
+    .widget-hint::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      right: 24px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 8px solid #18181b;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .no-agent-banner {
+      background: #fef3c7;
+      border-bottom: 1px solid #fcd34d;
+      padding: 12px 24px;
+      text-align: center;
+      color: #92400e;
+      font-size: 14px;
+    }
+    .no-agent-banner a {
+      color: #92400e;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="no-agent-banner" id="no-agent-banner" style="display: none;">
+    No Agent ID or Slug provided. <a href="index.html">Go back to enter your Agent ID or Slug</a>
+  </div>
+
+  <header>
+    <div class="logo">Acme Inc.</div>
+    <nav>
+      <a href="#">Products</a>
+      <a href="#">Pricing</a>
+      <a href="#">About</a>
+      <a href="index.html">Back to Examples</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Welcome to Acme</h1>
+    <p>The best solution for all your business needs. Trusted by thousands of companies worldwide.</p>
+    <a href="#" class="hero-cta">Get Started</a>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="feature-icon">&#9889;</div>
+      <h3>Lightning Fast</h3>
+      <p>Our platform is optimized for speed, ensuring your workflow is never slowed down.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#128274;</div>
+      <h3>Secure by Design</h3>
+      <p>Enterprise-grade security with end-to-end encryption and compliance certifications.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#127760;</div>
+      <h3>Global Scale</h3>
+      <p>Deploy anywhere in the world with our distributed infrastructure.</p>
+    </div>
+  </section>
+
+  <section class="code-section">
+    <h2>Embed Code</h2>
+    <p>Add this script to your website to enable the chat widget.</p>
+    <div class="code-block">
+      <pre><span class="comment">&lt;!-- Add before closing &lt;/body&gt; tag --&gt;</span>
+<span class="tag">&lt;script</span>
+  <span class="attr">src</span>=<span class="value">"http://localhost:3000/embed.js"</span>
+  <span class="attr">data-agent</span>=<span class="value">"<span id="code-agent">YOUR_AGENT_ID_OR_SLUG</span>"</span>
+  <span class="attr">data-position</span>=<span class="value">"widget"</span>
+  <span class="attr">data-theme</span>=<span class="value">"light"</span>
+  <span class="attr">async</span>
+<span class="tag">&gt;&lt;/script&gt;</span></pre>
+    </div>
+  </section>
+
+  <footer>
+    <p>Acme Inc. - Demo website for Autive embed widget</p>
+  </footer>
+
+  <div class="widget-hint" id="widget-hint">Click the chat button!</div>
+
+  <script>
+    // Get agent (ID or slug) and theme from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const agent = urlParams.get('agent');
+    const theme = urlParams.get('theme') || 'light';
+
+    if (agent) {
+      // Update the code block to show the actual agent
+      document.getElementById('code-agent').textContent = agent;
+
+      // Show the widget hint
+      document.getElementById('widget-hint').classList.add('visible');
+
+      // Dynamically inject the embed script
+      const script = document.createElement('script');
+      script.src = 'http://localhost:3000/embed.js';
+      script.setAttribute('data-agent', agent);
+      script.setAttribute('data-position', 'widget');
+      script.setAttribute('data-theme', theme);
+      script.async = true;
+      document.body.appendChild(script);
+    } else {
+      // Show the no-agent banner
+      document.getElementById('no-agent-banner').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

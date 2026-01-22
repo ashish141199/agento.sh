@@ -16,7 +16,7 @@ export interface InstructionsConfig {
  * Embed config JSON structure
  */
 export interface EmbedConfig {
-  position: 'fullscreen' | 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  position: 'expanded' | 'widget'
   theme: 'light' | 'dark'
 }
 
