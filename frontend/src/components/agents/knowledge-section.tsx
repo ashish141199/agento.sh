@@ -27,14 +27,18 @@ import {
 
 /**
  * Accepted file types for knowledge upload
+ * Keep in sync with backend FILE_UPLOAD_DEFAULTS.allowedMimeTypes
  */
 const ACCEPTED_FILE_TYPES = {
   'application/pdf': ['.pdf'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
   'application/vnd.ms-excel': ['.xls'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
   'text/plain': ['.txt'],
   'text/csv': ['.csv'],
   'text/markdown': ['.md'],
+  'text/typescript': ['.ts', '.tsx'],
+  'text/javascript': ['.js', '.jsx'],
   'application/json': ['.json'],
 }
 
@@ -397,7 +401,7 @@ export function KnowledgeSection({ agentId, disabled = false }: KnowledgeSection
             {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
           </p>
           <p className="text-xs text-neutral-500">
-            PDF, Excel, CSV, TXT, MD, JSON - Max 5MB per file
+            PDF, Word, Excel, CSV, TXT, MD, TS, JS, JSON - Max 5MB per file
           </p>
         </div>
       </div>
