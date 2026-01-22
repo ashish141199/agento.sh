@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useChat } from '@ai-sdk/react'
+import { useQuery } from '@tanstack/react-query'
 import { DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ import { PublicChatHeader } from './public-chat-header'
 import { PublicChatSidebar } from './public-chat-sidebar'
 import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
 import { conversationService, type Conversation } from '@/services/conversation.service'
+import { toolService } from '@/services/tool.service'
 
 /** Props for PublicChat component */
 interface PublicChatProps {
@@ -68,6 +70,28 @@ export function PublicChat({ agentId, agentSlug, agentName, agentDescription }: 
   const isAuthenticated = !!accessToken
 
   const fetchWithAuth = useFetchWithAuth()
+
+  // Fetch agent tools to get name-to-title mapping
+  const { data: agentTools = [] } = useQuery({
+    queryKey: ['agent-tools', agentId],
+    queryFn: async () => {
+      if (!accessToken) return []
+      const response = await toolService.getAgentTools(agentId, accessToken)
+      return response.data?.tools || []
+    },
+    enabled: !!accessToken && !!agentId,
+  })
+
+  // Create tool name to title mapping
+  const toolTitles = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const tool of agentTools) {
+      if (tool.title) {
+        map[tool.name] = tool.title
+      }
+    }
+    return map
+  }, [agentTools])
 
   /**
    * Update URL with conversation ID
@@ -338,12 +362,15 @@ export function PublicChat({ agentId, agentSlug, agentName, agentDescription }: 
                     }
                     if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
                       const toolPart = part as unknown as ToolCallPart
+                      const toolName = toolPart.toolName || part.type.replace('tool-', '')
+                      const toolTitle = toolTitles[toolName]
                       return (
                         <ToolCallCard
                           key={index}
                           part={{
                             ...toolPart,
-                            toolName: toolPart.toolName || part.type.replace('tool-', ''),
+                            toolName,
+                            title: toolTitle,
                           }}
                         />
                       )

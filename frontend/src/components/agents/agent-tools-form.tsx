@@ -16,7 +16,8 @@ import {
 } from '@/services/tool.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { notification } from '@/lib/notifications'
-import { Wrench, Plus, Loader2 } from 'lucide-react'
+import { Wrench, Plus, Loader2, Search, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 interface AgentToolsFormProps {
   agentId: string | null
@@ -32,6 +33,8 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingTool, setEditingTool] = useState<Tool | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Fetch tools assigned to this agent
   const { data: agentTools = [], isLoading } = useQuery({
@@ -182,6 +185,17 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
     }
   }
 
+  // Filter tools based on search query
+  const filteredTools = agentTools.filter((tool) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      tool.name.toLowerCase().includes(query) ||
+      tool.title?.toLowerCase().includes(query) ||
+      tool.description?.toLowerCase().includes(query)
+    )
+  })
+
   if (isLoading) {
     return (
       <div className="h-64 flex items-center justify-center">
@@ -208,23 +222,47 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
       ) : (
         // Tools list
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between sticky top-0 z-10 bg-neutral-50 dark:bg-neutral-950 pb-2">
             <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
               Tools
               <span className="ml-2 text-sm font-normal text-neutral-500">({agentTools.length})</span>
             </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddDialog(true)}
-              disabled={disabled || !agentId}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Tool
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => {
+                  setShowSearch(!showSearch)
+                  if (showSearch) setSearchQuery('')
+                }}
+              >
+                {showSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddDialog(true)}
+                disabled={disabled || !agentId}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Tool
+              </Button>
+            </div>
           </div>
+          {showSearch && (
+            <div className="pb-2">
+              <Input
+                placeholder="Search tools..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9"
+                autoFocus
+              />
+            </div>
+          )}
           <div className="space-y-2">
-            {agentTools.map((tool) => (
+            {filteredTools.map((tool) => (
               <ToolCard
                 key={tool.id}
                 tool={tool}
@@ -232,6 +270,11 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
                 onRemove={() => handleRemoveTool(tool.id)}
               />
             ))}
+            {filteredTools.length === 0 && searchQuery && (
+              <div className="py-8 text-center text-neutral-500">
+                No tools found matching "{searchQuery}"
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -109,6 +109,7 @@ export async function findToolsByAgentId(agentId: string): Promise<ToolWithAssig
       userId: tools.userId,
       type: tools.type,
       name: tools.name,
+      title: tools.title,
       description: tools.description,
       enabled: tools.enabled,
       inputSchema: tools.inputSchema,
