@@ -11,9 +11,10 @@ import {
   hasMessages,
 } from '../db/modules/message/message.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
-import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
+import type { ApiConnectorConfig, ApiConnectorAuth, ToolInputSchema } from '../db/schema/tools'
 import { DEFAULT_CONVERSATION_HISTORY_LIMIT, DEFAULT_MODEL_ID, DEFAULT_KNOWLEDGE_SETTINGS } from '../config/defaults'
 import { searchKnowledge, agentHasKnowledge } from '../services/knowledge.service'
+import { interpolate, buildToolInputZodSchema } from '../utils/tool-utils'
 
 /**
  * Build authentication headers for API connector
@@ -40,24 +41,41 @@ function buildAuthHeaders(auth?: ApiConnectorAuth): Record<string, string> {
 }
 
 /**
- * Execute an API connector tool
+ * Execute an API connector tool with input interpolation
  * @param config - API connector configuration
- * @param body - Optional body override from tool call
+ * @param inputs - Input values from the AI to interpolate
  * @returns API response
  */
 async function executeApiConnector(
   config: ApiConnectorConfig,
-  body?: string
+  inputs: Record<string, unknown>
 ): Promise<{ status: number; data: unknown }> {
+  // Interpolate URL with inputs
+  let url = interpolate(config.url, inputs)
+
+  // Build query parameters with interpolation
+  if (config.queryParams && config.queryParams.length > 0) {
+    const queryParts: string[] = []
+    for (const param of config.queryParams) {
+      const value = interpolate(param.value, inputs)
+      if (value) {
+        queryParts.push(`${encodeURIComponent(param.key)}=${encodeURIComponent(value)}`)
+      }
+    }
+    if (queryParts.length > 0) {
+      url += (url.includes('?') ? '&' : '?') + queryParts.join('&')
+    }
+  }
+
+  // Build headers with interpolation
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...buildAuthHeaders(config.authentication),
   }
 
-  // Add custom headers
   if (config.headers) {
     for (const header of config.headers) {
-      headers[header.key] = header.value
+      headers[header.key] = interpolate(header.value, inputs)
     }
   }
 
@@ -66,12 +84,12 @@ async function executeApiConnector(
     headers,
   }
 
-  // Add body for methods that support it
-  if (['POST', 'PUT', 'PATCH'].includes(config.method)) {
-    fetchOptions.body = body || config.body || undefined
+  // Add body for methods that support it, with interpolation
+  if (['POST', 'PUT', 'PATCH'].includes(config.method) && config.body) {
+    fetchOptions.body = interpolate(config.body, inputs)
   }
 
-  const response = await fetch(config.url, fetchOptions)
+  const response = await fetch(url, fetchOptions)
 
   let data: unknown
   const contentType = response.headers.get('content-type')
@@ -112,17 +130,24 @@ function sanitizeToolName(name: string): string {
 
 /**
  * Create a single AI SDK tool from a database tool config
+ * Uses the tool's input schema for dynamic parameters
  */
-function createApiConnectorTool(config: ApiConnectorConfig, description: string, title: string) {
+function createApiConnectorTool(
+  config: ApiConnectorConfig,
+  inputSchema: ToolInputSchema | null | undefined,
+  description: string,
+  title: string
+) {
+  // Build Zod schema from tool input schema
+  const zodInputSchema = buildToolInputZodSchema(inputSchema)
+
   return tool({
     description,
     title,
-    inputSchema: z.object({
-      body: z.string().optional().describe('Optional JSON body to send with the request'),
-    }),
-    execute: async ({ body }: { body?: string }) => {
+    inputSchema: zodInputSchema,
+    execute: async (inputs: Record<string, unknown>) => {
       try {
-        const result = await executeApiConnector(config, body)
+        const result = await executeApiConnector(config, inputs)
         return result
       } catch (error) {
         return {
@@ -144,15 +169,21 @@ function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
   const aiTools: ToolSet = {}
 
   for (const dbTool of dbTools) {
-    // Skip disabled tools
+    // Skip disabled tools or tools without config
     if (!dbTool.enabled || dbTool.agentEnabled === false) continue
+    if (!dbTool.config) continue
 
-    const config = dbTool.config as ApiConnectorConfig
-    const description = dbTool.description || `API call to ${config.url}`
     const toolName = sanitizeToolName(dbTool.name)
     const title = dbTool.name // Original name for display
 
-    aiTools[toolName] = createApiConnectorTool(config, description, title)
+    if (dbTool.type === 'api_connector') {
+      const config = dbTool.config as ApiConnectorConfig
+      const description = dbTool.description || `API call to ${config.url}`
+      const inputSchema = dbTool.inputSchema as ToolInputSchema | null
+
+      aiTools[toolName] = createApiConnectorTool(config, inputSchema, description, title)
+    }
+    // MCP connector support will be added later
   }
 
   return aiTools

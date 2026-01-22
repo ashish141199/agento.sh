@@ -23,7 +23,7 @@ import {
 import { findModelByModelId } from '../../db/modules/model/model.db'
 import { linkBuilderMessagesToAgent } from '../../db/modules/builder/builder.db'
 import type { InstructionsConfig, AgentSettings } from '../../db/schema/agents'
-import type { ApiConnectorConfig } from '../../db/schema/tools'
+import type { ApiConnectorConfig, ToolInputSchema, ToolInput } from '../../db/schema/tools'
 
 /**
  * Context object for builder tools
@@ -56,13 +56,29 @@ const createOrUpdateAgentSchema = z.object({
 type CreateOrUpdateAgentParams = z.infer<typeof createOrUpdateAgentSchema>
 
 /**
+ * Schema for tool input definition (used by builder)
+ */
+const toolInputDefSchema = z.object({
+  name: z.string().describe('Input identifier (no spaces, e.g., "city", "userId")'),
+  description: z.string().describe('What should the AI provide for this input'),
+  type: z.enum(['text', 'number', 'boolean', 'list', 'object']).describe('Data type'),
+  required: z.boolean().default(true).describe('Whether this input is required'),
+  default: z.any().optional().describe('Default value if not provided'),
+})
+
+/**
  * Schema for createTool tool parameters
  */
 const createToolSchema = z.object({
   name: z.string().min(1).max(100).describe('Tool name (used as function name, alphanumeric and underscores)'),
-  description: z.string().max(500).optional().describe('Description of what this tool does'),
-  url: z.string().url().describe('The API endpoint URL'),
+  description: z.string().max(500).optional().describe('Description of what this tool does - helps AI understand when to use it'),
+  inputs: z.array(toolInputDefSchema).optional().describe('Input parameters the AI should provide when calling this tool'),
+  url: z.string().url().describe('The API endpoint URL - can include {{inputName}} placeholders'),
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).describe('HTTP method'),
+  queryParams: z.array(z.object({
+    key: z.string(),
+    value: z.string(),
+  })).optional().describe('Query parameters - values can include {{inputName}} placeholders'),
   authenticationType: z.enum(['none', 'bearer', 'api_key', 'basic']).optional().describe('Authentication type'),
   authToken: z.string().optional().describe('Bearer token or API key value'),
   authUsername: z.string().optional().describe('Username for basic auth'),
@@ -70,8 +86,8 @@ const createToolSchema = z.object({
   headers: z.array(z.object({
     key: z.string(),
     value: z.string(),
-  })).optional().describe('Custom headers to include'),
-  body: z.string().optional().describe('Request body template for POST/PUT/PATCH'),
+  })).optional().describe('Custom headers - values can include {{inputName}} placeholders'),
+  body: z.string().optional().describe('Request body template for POST/PUT/PATCH - can include {{inputName}} placeholders'),
 })
 
 /** Type for createTool parameters */
@@ -84,8 +100,13 @@ const updateToolSchema = z.object({
   toolId: z.string().uuid().describe('The tool ID to update'),
   name: z.string().min(1).max(100).optional().describe('New tool name'),
   description: z.string().max(500).optional().describe('New description'),
-  url: z.string().url().optional().describe('New API endpoint URL'),
+  inputs: z.array(toolInputDefSchema).optional().describe('New input parameters - replaces existing inputs'),
+  url: z.string().url().optional().describe('New API endpoint URL - can include {{inputName}} placeholders'),
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional().describe('New HTTP method'),
+  queryParams: z.array(z.object({
+    key: z.string(),
+    value: z.string(),
+  })).optional().describe('New query parameters'),
   authenticationType: z.enum(['none', 'bearer', 'api_key', 'basic']).optional().describe('New authentication type'),
   authToken: z.string().optional().describe('New bearer token or API key'),
   authUsername: z.string().optional().describe('New username for basic auth'),
@@ -367,11 +388,26 @@ async function executeCreateTool(context: BuilderToolContext, params: CreateTool
       }
     }
 
+    // Build input schema from inputs array
+    let inputSchema: ToolInputSchema | undefined
+    if (params.inputs && params.inputs.length > 0) {
+      inputSchema = {
+        inputs: params.inputs.map(input => ({
+          name: input.name,
+          description: input.description,
+          type: input.type,
+          required: input.required ?? true,
+          default: input.default,
+        })) as ToolInput[],
+      }
+    }
+
     // Build API config
     const apiConfig: ApiConnectorConfig = {
       url: params.url,
       method: params.method,
       headers: params.headers,
+      queryParams: params.queryParams,
       body: params.body,
     }
 
@@ -392,6 +428,7 @@ async function executeCreateTool(context: BuilderToolContext, params: CreateTool
       type: 'api_connector',
       name: params.name,
       description: params.description,
+      inputSchema,
       config: apiConfig,
       enabled: true,
     })
@@ -413,6 +450,7 @@ async function executeCreateTool(context: BuilderToolContext, params: CreateTool
         type: 'api_connector',
         url: params.url,
         method: params.method,
+        inputs: params.inputs?.map(i => i.name) || [],
       },
     }
   } catch (error) {
@@ -460,11 +498,29 @@ async function executeUpdateTool(context: BuilderToolContext, params: UpdateTool
     if (params.name) updateData.name = params.name
     if (params.description !== undefined) updateData.description = params.description
 
+    // Update input schema if provided
+    if (params.inputs !== undefined) {
+      if (params.inputs.length > 0) {
+        updateData.inputSchema = {
+          inputs: params.inputs.map(input => ({
+            name: input.name,
+            description: input.description,
+            type: input.type,
+            required: input.required ?? true,
+            default: input.default,
+          })) as ToolInput[],
+        }
+      } else {
+        updateData.inputSchema = null
+      }
+    }
+
     // Build updated config
     const newConfig: ApiConnectorConfig = {
       url: params.url || existingConfig.url,
       method: params.method || existingConfig.method,
       headers: params.headers !== undefined ? params.headers : existingConfig.headers,
+      queryParams: params.queryParams !== undefined ? params.queryParams : existingConfig.queryParams,
       body: params.body !== undefined ? params.body : existingConfig.body,
     }
 

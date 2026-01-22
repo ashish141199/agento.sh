@@ -1,6 +1,32 @@
 import { api } from '@/lib/api'
 
 /**
+ * Tool input types
+ */
+export type ToolInputType = 'text' | 'number' | 'boolean' | 'list' | 'object'
+
+/**
+ * Single tool input definition
+ */
+export interface ToolInput {
+  name: string
+  description: string
+  type: ToolInputType
+  required: boolean
+  default?: unknown
+  listItemType?: ToolInputType
+  listItemProperties?: ToolInput[]
+  properties?: ToolInput[]
+}
+
+/**
+ * Tool input schema
+ */
+export interface ToolInputSchema {
+  inputs: ToolInput[]
+}
+
+/**
  * API Connector authentication config
  */
 export interface ApiConnectorAuth {
@@ -18,9 +44,32 @@ export interface ApiConnectorConfig {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   url: string
   headers?: { key: string; value: string }[]
+  queryParams?: { key: string; value: string }[]
   body?: string
   authentication?: ApiConnectorAuth
 }
+
+/**
+ * MCP Connector config
+ */
+export interface McpConnectorConfig {
+  serverUrl: string
+  selectedTools?: string[]
+  authentication?: {
+    type: 'none' | 'bearer' | 'oauth2'
+    token?: string
+  }
+}
+
+/**
+ * Tool config union type
+ */
+export type ToolConfig = ApiConnectorConfig | McpConnectorConfig
+
+/**
+ * Tool type
+ */
+export type ToolType = 'api_connector' | 'mcp_connector'
 
 /**
  * Tool type
@@ -28,11 +77,12 @@ export interface ApiConnectorConfig {
 export interface Tool {
   id: string
   userId: string
-  type: 'api_connector'
+  type: ToolType
   name: string
   description: string | null
   enabled: boolean
-  config: ApiConnectorConfig
+  inputSchema: ToolInputSchema | null
+  config: ToolConfig | null
   createdAt: string
   updatedAt: string
 }
@@ -57,14 +107,15 @@ export interface AgentTool {
 }
 
 /**
- * Create tool input
+ * Create tool input (Step 1 - basic info)
  */
 export interface CreateToolInput {
-  type?: 'api_connector'
+  type?: ToolType
   name: string
   description?: string
   enabled?: boolean
-  config: ApiConnectorConfig
+  inputSchema?: ToolInputSchema
+  config?: ToolConfig | null
 }
 
 /**
@@ -74,7 +125,8 @@ export interface UpdateToolInput {
   name?: string
   description?: string
   enabled?: boolean
-  config?: ApiConnectorConfig
+  inputSchema?: ToolInputSchema
+  config?: ToolConfig | null
 }
 
 /**

@@ -12,8 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Globe, Pencil, Trash2 } from 'lucide-react'
-import type { ToolWithAssignment } from '@/services/tool.service'
+import { Globe, Pencil, Trash2, AlertCircle } from 'lucide-react'
+import type { ToolWithAssignment, ApiConnectorConfig } from '@/services/tool.service'
 
 interface ToolCardProps {
   tool: ToolWithAssignment
@@ -33,18 +33,48 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
     setShowDeleteDialog(false)
   }
 
+  const config = tool.config as ApiConnectorConfig | null
+  const inputCount = tool.inputSchema?.inputs?.length || 0
+  const isConfigured = !!config
+  const toolTypeLabel = tool.type === 'api_connector' ? 'API' : 'MCP'
+
   return (
     <>
-      <div className="flex items-center gap-4 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-        <div className="p-2 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-          <Globe className="h-5 w-5" />
+      <div className={`flex items-center gap-4 p-4 rounded-lg border bg-white dark:bg-neutral-900 ${
+        isConfigured
+          ? 'border-neutral-200 dark:border-neutral-700'
+          : 'border-amber-300 dark:border-amber-700'
+      }`}>
+        <div className={`p-2 rounded-md ${
+          isConfigured
+            ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+            : 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300'
+        }`}>
+          {isConfigured ? <Globe className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
             {tool.name}
           </div>
-          <div className="text-sm text-neutral-500 dark:text-neutral-400">
-            API Connector &middot; {tool.config.method}
+          <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
+            <span>{toolTypeLabel}</span>
+            {config && (
+              <>
+                <span>&middot;</span>
+                <span>{config.method}</span>
+              </>
+            )}
+            {inputCount > 0 && (
+              <>
+                <span>&middot;</span>
+                <span>{inputCount} input{inputCount !== 1 ? 's' : ''}</span>
+              </>
+            )}
+            {!isConfigured && (
+              <span className="text-amber-600 dark:text-amber-400">
+                &middot; Not configured
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
