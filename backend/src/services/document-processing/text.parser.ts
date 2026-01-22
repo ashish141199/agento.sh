@@ -5,6 +5,7 @@
 
 import type { DocumentParser, ParsedDocument, DocumentSection } from './types'
 import { htmlToMarkdown } from './html-to-markdown'
+import { CHUNKING_DEFAULTS } from '../../config/knowledge.defaults'
 
 /**
  * Text parser implementation
@@ -396,9 +397,9 @@ export class TextParser implements DocumentParser {
     for (const paragraph of paragraphs) {
       currentContent.push(paragraph)
 
-      // Create a new section every ~1000 characters or at natural breaks
+      // Create a new section based on configured chunk size
       const totalLength = currentContent.join('\n\n').length
-      if (totalLength >= 1000) {
+      if (totalLength >= CHUNKING_DEFAULTS.chunkSize) {
         sections.push({
           index: sectionIndex++,
           content: currentContent.join('\n\n'),

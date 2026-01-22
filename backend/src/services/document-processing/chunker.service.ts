@@ -389,7 +389,7 @@ interface MarkdownSectionChunk {
  * Markdown chunking configuration
  */
 export interface MarkdownChunkingConfig {
-  /** Maximum characters per chunk (default: 1500) */
+  /** Maximum characters per chunk (default: CHUNKING_DEFAULTS.maxChunkSize) */
   maxChunkSize: number
   /** Minimum characters per chunk (default: 100) */
   minChunkSize: number
@@ -410,7 +410,7 @@ export function chunkMarkdown(
   source: string,
   options: Partial<MarkdownChunkingConfig> = {}
 ): TextChunk[] {
-  const maxChunkSize = options.maxChunkSize ?? 1500
+  const maxChunkSize = options.maxChunkSize ?? CHUNKING_DEFAULTS.maxChunkSize
   const minChunkSize = options.minChunkSize ?? 100
 
   const sectionChunks = splitMarkdownBySections(markdown, maxChunkSize, minChunkSize)
@@ -711,7 +711,7 @@ export function chunkCode(
   sections: Array<{ title?: string; content: string }>,
   options: { maxChunkSize?: number } = {}
 ): TextChunk[] {
-  const maxChunkSize = options.maxChunkSize ?? 1500
+  const maxChunkSize = options.maxChunkSize ?? CHUNKING_DEFAULTS.maxChunkSize
   const minChunkSize = CHUNKING_DEFAULTS.minChunkSize
   const chunks: TextChunk[] = []
   let charOffset = 0

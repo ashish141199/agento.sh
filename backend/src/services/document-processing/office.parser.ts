@@ -5,6 +5,7 @@
 
 import officeParser from 'officeparser'
 import type { DocumentParser, ParsedDocument, DocumentSection } from './types'
+import { CHUNKING_DEFAULTS } from '../../config/knowledge.defaults'
 
 /** Supported MIME types */
 const SUPPORTED_MIME_TYPES = [
@@ -137,7 +138,7 @@ export class OfficeDocParser implements DocumentParser {
       .split(/\n\n+/)
       .filter(p => p.trim().length > 0)
 
-    // Group paragraphs into sections (~1000 chars each)
+    // Group paragraphs into sections based on configured chunk size
     const sections: DocumentSection[] = []
     let currentContent: string[] = []
     let sectionIndex = 0
@@ -146,7 +147,7 @@ export class OfficeDocParser implements DocumentParser {
       currentContent.push(paragraph)
 
       const totalLength = currentContent.join('\n\n').length
-      if (totalLength >= 1000) {
+      if (totalLength >= CHUNKING_DEFAULTS.chunkSize) {
         sections.push({
           index: sectionIndex++,
           content: currentContent.join('\n\n'),
