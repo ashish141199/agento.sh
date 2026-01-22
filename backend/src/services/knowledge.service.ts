@@ -8,10 +8,10 @@ import { embeddingService } from './embedding.service'
 import {
   parseAndChunk,
   isSupported,
+  chunkMarkdown,
   type TextChunk,
 } from './document-processing'
 import { websiteCrawler, type DiscoveryResult } from './document-processing/website.crawler'
-import { textChunker } from './document-processing/chunker.service'
 import {
   createKnowledgeSource,
   updateKnowledgeSource,
@@ -422,15 +422,13 @@ export async function createWebsiteKnowledgeSource(
     const allChunks: TextChunk[] = []
     for (const page of crawlResult.pages) {
       if (page.content && page.content.length > 0) {
-        const chunks = textChunker.chunk(page.content, {
-          source: page.url,
-          section: page.title,
-        })
+        // Use markdown-aware chunking for better semantic chunks
+        const chunks = chunkMarkdown(page.content, page.url)
         allChunks.push(...chunks)
       }
     }
 
-    console.log(`[KnowledgeService] Created ${allChunks.length} chunks from ${crawlResult.pages.length} pages`)
+    console.log(`[KnowledgeService] Created ${allChunks.length} chunks from ${crawlResult.pages.length} pages (using markdown chunking)`)
 
     if (allChunks.length === 0) {
       throw new Error('No content could be extracted from website')
@@ -543,15 +541,13 @@ async function reprocessWebsiteSource(
     const allChunks: TextChunk[] = []
     for (const page of crawlResult.pages) {
       if (page.content && page.content.length > 0) {
-        const chunks = textChunker.chunk(page.content, {
-          source: page.url,
-          section: page.title,
-        })
+        // Use markdown-aware chunking for better semantic chunks
+        const chunks = chunkMarkdown(page.content, page.url)
         allChunks.push(...chunks)
       }
     }
 
-    console.log(`[KnowledgeService] Created ${allChunks.length} chunks`)
+    console.log(`[KnowledgeService] Created ${allChunks.length} chunks (using markdown chunking)`)
 
     if (allChunks.length === 0) {
       throw new Error('No content could be extracted from website')
@@ -858,16 +854,14 @@ export async function indexWebsitePages(
     for (let i = 0; i < crawlResult.pages.length; i++) {
       const page = crawlResult.pages[i]!
       if (page.content && page.content.length > 0) {
-        const chunks = textChunker.chunk(page.content, {
-          source: page.url,
-          section: page.title,
-        })
+        // Use markdown-aware chunking for better semantic chunks
+        const chunks = chunkMarkdown(page.content, page.url)
         allChunks.push(...chunks)
       }
       if (onProgress) onProgress('chunking', i + 1, crawlResult.pages.length)
     }
 
-    console.log(`[KnowledgeService] Created ${allChunks.length} chunks from ${crawlResult.pages.length} pages`)
+    console.log(`[KnowledgeService] Created ${allChunks.length} chunks from ${crawlResult.pages.length} pages (using markdown chunking)`)
 
     if (allChunks.length === 0) {
       throw new Error('No content could be extracted from website')

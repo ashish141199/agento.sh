@@ -7,7 +7,7 @@ import { pdfParser } from './pdf.parser'
 import { excelParser } from './excel.parser'
 import { textParser } from './text.parser'
 import { websiteCrawler, WebsiteCrawler } from './website.crawler'
-import { textChunker, TextChunker, createChunker } from './chunker.service'
+import { textChunker, TextChunker, createChunker, chunkMarkdown } from './chunker.service'
 import type {
   DocumentParser,
   ParsedDocument,
@@ -159,4 +159,4 @@ export type {
   DocumentMetadata,
 } from './types'
 
-export { createChunker, TextChunker, WebsiteCrawler, websiteCrawler, textChunker }
+export { createChunker, TextChunker, WebsiteCrawler, websiteCrawler, textChunker, chunkMarkdown }

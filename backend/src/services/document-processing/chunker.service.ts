@@ -361,6 +361,236 @@ export class TextChunker {
   }
 }
 
+/**
+ * Markdown section chunk (internal representation)
+ */
+interface MarkdownSectionChunk {
+  content: string
+  header?: string
+  headerLevel?: number
+  charCount: number
+}
+
+/**
+ * Markdown chunking configuration
+ */
+export interface MarkdownChunkingConfig {
+  /** Maximum characters per chunk (default: 1500) */
+  maxChunkSize: number
+  /** Minimum characters per chunk (default: 100) */
+  minChunkSize: number
+}
+
+/**
+ * Chunk markdown content by sections (headers)
+ * Keeps each section intact, only subdividing if it exceeds maxChunkSize
+ * This produces semantically meaningful chunks where each chunk is a complete section.
+ *
+ * @param markdown - Markdown content to chunk
+ * @param source - Source identifier (URL, filename, etc.)
+ * @param options - Chunking options
+ * @returns Array of TextChunk objects
+ */
+export function chunkMarkdown(
+  markdown: string,
+  source: string,
+  options: Partial<MarkdownChunkingConfig> = {}
+): TextChunk[] {
+  const maxChunkSize = options.maxChunkSize ?? 1500
+  const minChunkSize = options.minChunkSize ?? 100
+
+  const sectionChunks = splitMarkdownBySections(markdown, maxChunkSize, minChunkSize)
+
+  // Convert to TextChunk format
+  let charOffset = 0
+  return sectionChunks.map((section, index) => {
+    const chunk: TextChunk = {
+      index,
+      content: section.content,
+      length: section.charCount,
+      metadata: {
+        source,
+        section: section.header,
+        charStart: charOffset,
+        charEnd: charOffset + section.charCount,
+      },
+    }
+    charOffset += section.charCount
+    return chunk
+  })
+}
+
+/**
+ * Split markdown into sections by headers
+ */
+function splitMarkdownBySections(
+  markdown: string,
+  maxChunkSize: number,
+  minChunkSize: number
+): MarkdownSectionChunk[] {
+  const chunks: MarkdownSectionChunk[] = []
+
+  // Split into lines and process
+  const lines = markdown.split('\n')
+  let currentSection: { header: string; headerLevel: number; content: string[] } | null = null
+  let preambleLines: string[] = []
+
+  for (const line of lines) {
+    const headerMatch = line.match(/^(#{1,6})\s+(.+)$/)
+
+    if (headerMatch) {
+      // Save previous section or preamble
+      if (currentSection) {
+        const sectionContent = `${currentSection.header}\n\n${currentSection.content.join('\n')}`.trim()
+        if (sectionContent.length >= minChunkSize) {
+          if (sectionContent.length > maxChunkSize) {
+            chunks.push(...splitLargeSection(sectionContent, currentSection.header, currentSection.headerLevel, maxChunkSize, minChunkSize))
+          } else {
+            chunks.push({
+              content: sectionContent,
+              header: currentSection.header,
+              headerLevel: currentSection.headerLevel,
+              charCount: sectionContent.length,
+            })
+          }
+        }
+      } else if (preambleLines.length > 0) {
+        // Save preamble (content before first header)
+        const preamble = preambleLines.join('\n').trim()
+        if (preamble.length >= minChunkSize) {
+          chunks.push({
+            content: preamble,
+            charCount: preamble.length,
+          })
+        }
+      }
+
+      // Start new section
+      currentSection = {
+        header: line,
+        headerLevel: headerMatch[1]!.length,
+        content: [],
+      }
+      preambleLines = []
+    } else if (currentSection) {
+      currentSection.content.push(line)
+    } else {
+      preambleLines.push(line)
+    }
+  }
+
+  // Handle last section or remaining preamble
+  if (currentSection) {
+    const sectionContent = `${currentSection.header}\n\n${currentSection.content.join('\n')}`.trim()
+    if (sectionContent.length >= minChunkSize) {
+      if (sectionContent.length > maxChunkSize) {
+        chunks.push(...splitLargeSection(sectionContent, currentSection.header, currentSection.headerLevel, maxChunkSize, minChunkSize))
+      } else {
+        chunks.push({
+          content: sectionContent,
+          header: currentSection.header,
+          headerLevel: currentSection.headerLevel,
+          charCount: sectionContent.length,
+        })
+      }
+    }
+  } else if (preambleLines.length > 0) {
+    const preamble = preambleLines.join('\n').trim()
+    if (preamble.length >= minChunkSize) {
+      chunks.push({
+        content: preamble,
+        charCount: preamble.length,
+      })
+    }
+  }
+
+  // Merge tiny chunks with previous
+  const mergedChunks: MarkdownSectionChunk[] = []
+  for (const chunk of chunks) {
+    if (chunk.charCount < minChunkSize && mergedChunks.length > 0) {
+      const last = mergedChunks[mergedChunks.length - 1]!
+      last.content += '\n\n' + chunk.content
+      last.charCount = last.content.length
+    } else {
+      mergedChunks.push(chunk)
+    }
+  }
+
+  return mergedChunks
+}
+
+/**
+ * Split a large section by paragraphs, then sentences if needed
+ */
+function splitLargeSection(
+  content: string,
+  header: string,
+  headerLevel: number,
+  maxChunkSize: number,
+  minChunkSize: number
+): MarkdownSectionChunk[] {
+  const chunks: MarkdownSectionChunk[] = []
+
+  // Try splitting by paragraphs first
+  const paragraphs = content.split(/\n\n+/)
+  let currentChunk = ''
+  let isFirstChunk = true
+
+  for (const para of paragraphs) {
+    if (currentChunk.length + para.length + 2 <= maxChunkSize) {
+      currentChunk += (currentChunk ? '\n\n' : '') + para
+    } else {
+      // Save current chunk if it's big enough
+      if (currentChunk.length >= minChunkSize) {
+        chunks.push({
+          content: currentChunk.trim(),
+          header: isFirstChunk ? header : `${header} (continued)`,
+          headerLevel,
+          charCount: currentChunk.trim().length,
+        })
+        isFirstChunk = false
+      }
+
+      // Start new chunk
+      if (para.length <= maxChunkSize) {
+        currentChunk = para
+      } else {
+        // Paragraph itself is too large, split by sentences
+        const sentences = para.split(/(?<=[.!?])\s+/)
+        currentChunk = ''
+        for (const sentence of sentences) {
+          if (currentChunk.length + sentence.length + 1 <= maxChunkSize) {
+            currentChunk += (currentChunk ? ' ' : '') + sentence
+          } else {
+            if (currentChunk.length >= minChunkSize) {
+              chunks.push({
+                content: currentChunk.trim(),
+                header: isFirstChunk ? header : `${header} (continued)`,
+                headerLevel,
+                charCount: currentChunk.trim().length,
+              })
+              isFirstChunk = false
+            }
+            currentChunk = sentence
+          }
+        }
+      }
+    }
+  }
+
+  // Don't forget remaining content
+  if (currentChunk.length >= minChunkSize) {
+    chunks.push({
+      content: currentChunk.trim(),
+      header: isFirstChunk ? header : `${header} (continued)`,
+      headerLevel,
+      charCount: currentChunk.trim().length,
+    })
+  }
+
+  return chunks
+}
+
 /** Default text chunker instance */
 export const textChunker = new TextChunker()
 
