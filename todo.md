@@ -43,4 +43,4 @@ We should first have an "Add new" button or "Add more sources" button at the bot
 
 - [ ] We need a separate tab for knowledge. So it will be identity, instructions, knowledge, and then tools. 
 - [x] When I try to let it discover a website, it only is discovering 10 pages for some reason. You can see the first indexing and retraining both. 
-- [ ] It is not chunking it properly based on markdown, etc. Maybe use library: chunkie
+- [x] It is not chunking it properly based on markdown, etc. Maybe use library: chunkie
