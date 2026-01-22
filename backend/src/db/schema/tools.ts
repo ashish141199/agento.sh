@@ -101,8 +101,11 @@ export const tools = pgTable('tools', {
   /** Tool type */
   type: toolTypeEnum('type').notNull().default('api_connector'),
 
-  /** Tool name */
+  /** Tool name (internal identifier, e.g. get_file_contents) */
   name: text('name').notNull(),
+
+  /** Tool title (human-readable display name, e.g. "Get File Contents") */
+  title: text('title'),
 
   /** Tool description */
   description: text('description'),

@@ -281,7 +281,7 @@ export function McpConnectorConfigForm({
                     className="mt-0.5"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{tool.name}</div>
+                    <div className="font-medium text-sm">{tool.title}</div>
                     <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">
                       {tool.description}
                     </p>

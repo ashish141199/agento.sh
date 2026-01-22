@@ -8,6 +8,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
+import { useQuery } from '@tanstack/react-query'
 import { DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,8 @@ import { Send, Loader2, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ToolCallCard, type ToolCallPart } from './tool-call-card'
 import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
+import { toolService } from '@/services/tool.service'
+import { useAuthStore } from '@/stores/auth.store'
 
 /** Props for AgentChat component */
 interface AgentChatProps {
@@ -49,6 +52,30 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
   const inputRef = useRef<HTMLInputElement>(null)
 
   const fetchWithAuth = useFetchWithAuth()
+  const token = useAuthStore((state) => state.accessToken)
+
+  // Fetch agent tools to get name-to-title mapping
+  // Uses same query key and return format as AgentToolsForm to share cache
+  const { data: agentTools = [] } = useQuery({
+    queryKey: ['agent-tools', agentId],
+    queryFn: async () => {
+      if (!token) return []
+      const response = await toolService.getAgentTools(agentId, token)
+      return response.data?.tools || []
+    },
+    enabled: !!token && !!agentId,
+  })
+
+  // Create tool name to title mapping
+  const toolTitles = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const tool of agentTools) {
+      if (tool.title) {
+        map[tool.name] = tool.title
+      }
+    }
+    return map
+  }, [agentTools])
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
@@ -181,6 +208,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
                       if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
                         const toolPart = part as unknown as ToolCallPart
                         const toolName = toolPart.toolName || part.type.replace('tool-', '')
+                        const toolTitle = toolTitles[toolName]
 
                         return (
                           <ToolCallCard
@@ -188,6 +216,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
                             part={{
                               ...toolPart,
                               toolName,
+                              title: toolTitle,
                             }}
                           />
                         )

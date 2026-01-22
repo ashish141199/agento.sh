@@ -57,18 +57,20 @@ interface SimpleToolCallCardProps {
   toolName: string
   /** Current execution status */
   status: ToolStatus
+  /** Optional display name (title) to show instead of toolName */
+  displayName?: string
 }
 
 /**
  * Simple tool call indicator for inline chat display
  * Shows tool name with a status icon (loading, success, or error)
  */
-export function SimpleToolCallCard({ toolName, status }: SimpleToolCallCardProps) {
+export function SimpleToolCallCard({ toolName, status, displayName }: SimpleToolCallCardProps) {
   return (
     <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
       <Wrench className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
       <span className="text-neutral-600 dark:text-neutral-300 flex-1">
-        {getToolDisplayName(toolName)}
+        {displayName || getToolDisplayName(toolName)}
       </span>
       {status === 'pending' && (
         <Loader2 className="h-3 w-3 animate-spin text-neutral-400 shrink-0" />

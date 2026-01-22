@@ -11,7 +11,8 @@ import {
   hasMessages,
 } from '../db/modules/message/message.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
-import type { ApiConnectorConfig, ApiConnectorAuth, ToolInputSchema } from '../db/schema/tools'
+import type { ApiConnectorConfig, ApiConnectorAuth, McpConnectorConfig, ToolInputSchema } from '../db/schema/tools'
+import { McpClient, type McpAuth } from '../services/mcp.service'
 import { DEFAULT_CONVERSATION_HISTORY_LIMIT, DEFAULT_MODEL_ID, DEFAULT_KNOWLEDGE_SETTINGS } from '../config/defaults'
 import { searchKnowledge, agentHasKnowledge } from '../services/knowledge.service'
 import { interpolate, buildToolInputZodSchema } from '../utils/tool-utils'
@@ -129,6 +130,36 @@ function sanitizeToolName(name: string): string {
 }
 
 /**
+ * Execute an MCP connector tool by calling the MCP server
+ * @param config - MCP connector configuration
+ * @param inputs - Input values from the AI
+ * @returns Tool result
+ */
+async function executeMcpConnector(
+  config: McpConnectorConfig,
+  inputs: Record<string, unknown>
+): Promise<{ success: boolean; data: unknown }> {
+  const auth: McpAuth | undefined = config.authentication?.type === 'bearer'
+    ? { type: 'bearer', token: config.authentication.token }
+    : undefined
+
+  const client = new McpClient(config.serverUrl, auth)
+
+  try {
+    await client.connect()
+
+    const result = await client.callTool(config.toolName, inputs)
+
+    return {
+      success: true,
+      data: result.content,
+    }
+  } finally {
+    await client.disconnect()
+  }
+}
+
+/**
  * Create a single AI SDK tool from a database tool config
  * Uses the tool's input schema for dynamic parameters
  */
@@ -160,6 +191,37 @@ function createApiConnectorTool(
 }
 
 /**
+ * Create a single AI SDK tool from an MCP connector config
+ * Uses the tool's input schema for dynamic parameters
+ */
+function createMcpConnectorTool(
+  config: McpConnectorConfig,
+  inputSchema: ToolInputSchema | null | undefined,
+  description: string,
+  title: string
+) {
+  // Build Zod schema from tool input schema
+  const zodInputSchema = buildToolInputZodSchema(inputSchema)
+
+  return tool({
+    description,
+    title,
+    inputSchema: zodInputSchema,
+    execute: async (inputs: Record<string, unknown>) => {
+      try {
+        const result = await executeMcpConnector(config, inputs)
+        return result
+      } catch (error) {
+        return {
+          success: false,
+          data: { error: error instanceof Error ? error.message : 'Unknown error' },
+        }
+      }
+    },
+  })
+}
+
+/**
  * Build AI SDK tools from database tools
  * Only includes tools that users have explicitly configured for their agent
  * @param dbTools - Tools from database
@@ -182,8 +244,13 @@ function buildAiSdkTools(dbTools: ToolWithAssignment[]): ToolSet {
       const inputSchema = dbTool.inputSchema as ToolInputSchema | null
 
       aiTools[toolName] = createApiConnectorTool(config, inputSchema, description, title)
+    } else if (dbTool.type === 'mcp_connector') {
+      const config = dbTool.config as McpConnectorConfig
+      const description = dbTool.description || `MCP tool: ${config.toolName}`
+      const inputSchema = dbTool.inputSchema as ToolInputSchema | null
+
+      aiTools[toolName] = createMcpConnectorTool(config, inputSchema, description, title)
     }
-    // MCP connector support will be added later
   }
 
   return aiTools

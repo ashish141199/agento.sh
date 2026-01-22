@@ -43,6 +43,8 @@ interface MessagePartsRendererProps {
     input: AskUserInput,
     response: AskUserResponse
   ) => void
+  /** Map of tool names to display titles */
+  toolTitles?: Record<string, string>
 }
 
 /**
@@ -134,6 +136,7 @@ export function MessagePartsRenderer({
   submittedResponses,
   submittingToolId,
   onAskUserSubmit,
+  toolTitles = {},
 }: MessagePartsRendererProps) {
   return (
     <>
@@ -173,6 +176,7 @@ export function MessagePartsRenderer({
               key={index}
               toolName={toolName}
               status={getToolStatus(part.state)}
+              displayName={toolTitles[toolName]}
             />
           )
         }

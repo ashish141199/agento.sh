@@ -29,6 +29,20 @@ import type {
 
 type Step = 'define' | 'configure'
 
+/**
+ * Generate internal name from title
+ * Converts "Get Weather Data" to "get_weather_data"
+ */
+function generateNameFromTitle(title: string): string {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '_')         // Replace spaces with underscores
+    .replace(/^[^a-z]+/, '')      // Ensure starts with a letter
+    || 'tool'                     // Fallback if empty
+}
+
 interface AddToolDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -57,7 +71,7 @@ export function AddToolDialog({
   const [step, setStep] = useState<Step>('define')
 
   // Step 1 state
-  const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [inputSchema, setInputSchema] = useState<ToolInputSchema>({ inputs: [] })
   const [toolType, setToolType] = useState<ToolType | null>(null)
@@ -85,8 +99,8 @@ export function AddToolDialog({
   useEffect(() => {
     if (open && !isCreating) {
       if (tool) {
-        // Editing existing tool
-        setName(tool.name)
+        // Editing existing tool - use title if available, otherwise use name
+        setTitle(tool.title || tool.name)
         setDescription(tool.description || '')
         setInputSchema(tool.inputSchema || { inputs: [] })
         setToolType(tool.type)
@@ -105,7 +119,7 @@ export function AddToolDialog({
         }
       } else {
         // Creating new tool - reset everything
-        setName('')
+        setTitle('')
         setDescription('')
         setInputSchema({ inputs: [] })
         setToolType(null) // No default selection
@@ -130,7 +144,7 @@ export function AddToolDialog({
 
   // Step 1 validation
   const isStep1Valid = toolType === 'api_connector'
-    ? name.trim().length > 0
+    ? title.trim().length > 0
     : toolType === 'mcp_connector'
 
   // Step 2 validation
@@ -147,10 +161,15 @@ export function AddToolDialog({
         // Mark as creating to prevent useEffect from resetting step
         setIsCreating(true)
 
+        // Generate internal name from title
+        const titleValue = title.trim()
+        const nameValue = generateNameFromTitle(titleValue)
+
         // Save tool with basic info (Step 1 data)
         const savedTool = await onSave({
           type: toolType,
-          name: name.trim(),
+          name: nameValue,
+          title: titleValue,
           description: description.trim() || undefined,
           inputSchema: inputSchema.inputs.length > 0 ? inputSchema : undefined,
           config: null, // No config yet
@@ -281,14 +300,14 @@ export function AddToolDialog({
             {/* API Connector fields - only shown when API is selected */}
             {toolType === 'api_connector' && (
               <>
-                {/* Name */}
+                {/* Title */}
                 <div className="space-y-2">
-                  <Label htmlFor="tool-name">Name *</Label>
+                  <Label htmlFor="tool-title">Title *</Label>
                   <Input
-                    id="tool-name"
+                    id="tool-title"
                     placeholder="Get Weather"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                     disabled={isSaving}
                   />
                 </div>

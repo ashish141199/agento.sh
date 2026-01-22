@@ -11,7 +11,7 @@ export const toolInputTypeSchema = z.enum(['text', 'number', 'boolean', 'list', 
  */
 const baseToolInputSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name too long').regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Name must start with a letter and contain only letters, numbers, and underscores'),
-  description: z.string().min(1, 'Description is required').max(1000, 'Description too long'),
+  description: z.string().min(1, 'Description is required').max(5000, 'Description too long'),
   type: toolInputTypeSchema,
   required: z.boolean().default(false),
   default: z.any().optional(),
@@ -89,6 +89,7 @@ export const mcpConnectorConfigSchema = z.object({
  */
 export const mcpDiscoveredToolSchema = z.object({
   name: z.string(),
+  title: z.string(),
   description: z.string(),
   inputSchema: toolInputSchemaSchema,
 })
@@ -121,6 +122,7 @@ export const toolConfigSchema = z.union([apiConnectorConfigSchema, mcpConnectorC
 export const createToolSchema = z.object({
   type: z.enum(['api_connector', 'mcp_connector']).default('api_connector'),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  title: z.string().max(200, 'Title too long').optional(),
   description: z.string().max(2000, 'Description too long').optional(),
   enabled: z.boolean().default(true),
   inputSchema: toolInputSchemaSchema.optional(),
@@ -132,6 +134,7 @@ export const createToolSchema = z.object({
  */
 export const updateToolSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
+  title: z.string().max(200, 'Title too long').optional(),
   description: z.string().max(2000, 'Description too long').optional(),
   enabled: z.boolean().optional(),
   inputSchema: toolInputSchemaSchema.optional(),

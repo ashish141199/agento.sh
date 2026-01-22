@@ -85,6 +85,13 @@
       "when": 1769067189239,
       "tag": "20260122073309_fixed_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1769083533000,
+      "tag": "20260122120533_add_tool_title",
+      "breakpoints": true
     }
   ]
 }

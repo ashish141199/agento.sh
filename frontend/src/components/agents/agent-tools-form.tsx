@@ -209,7 +209,10 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
         // Tools list
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">Tools</h3>
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+              Tools
+              <span className="ml-2 text-sm font-normal text-neutral-500">({agentTools.length})</span>
+            </h3>
             <Button
               variant="outline"
               size="sm"

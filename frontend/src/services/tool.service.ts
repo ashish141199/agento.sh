@@ -67,6 +67,7 @@ export interface McpConnectorConfig {
  */
 export interface McpDiscoveredTool {
   name: string
+  title: string
   description: string
   inputSchema: ToolInputSchema
 }
@@ -89,6 +90,7 @@ export interface Tool {
   userId: string
   type: ToolType
   name: string
+  title: string | null
   description: string | null
   enabled: boolean
   inputSchema: ToolInputSchema | null
@@ -122,6 +124,7 @@ export interface AgentTool {
 export interface CreateToolInput {
   type?: ToolType
   name: string
+  title?: string
   description?: string
   enabled?: boolean
   inputSchema?: ToolInputSchema
@@ -133,6 +136,7 @@ export interface CreateToolInput {
  */
 export interface UpdateToolInput {
   name?: string
+  title?: string
   description?: string
   enabled?: boolean
   inputSchema?: ToolInputSchema

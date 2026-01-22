@@ -39,6 +39,9 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
   const apiConfig = !isMcp ? (tool.config as ApiConnectorConfig | null) : null
   const mcpConfig = isMcp ? (tool.config as McpConnectorConfig | null) : null
 
+  // Display title if available, otherwise fall back to name
+  const displayName = tool.title || tool.name
+
   // Extract server hostname for MCP display
   const getServerHost = (url: string) => {
     try {
@@ -72,7 +75,7 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
-            {tool.name}
+            {displayName}
           </div>
           <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-2 flex-wrap">
             <span>{isMcp ? 'MCP' : 'API'}</span>
@@ -126,7 +129,7 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Tool</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove &quot;{tool.name}&quot; from this agent?
+              Are you sure you want to remove &quot;{displayName}&quot; from this agent?
               The tool itself will not be deleted and can be added again later.
             </AlertDialogDescription>
           </AlertDialogHeader>

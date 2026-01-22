@@ -23,6 +23,7 @@ export interface McpAuth {
  */
 export interface DiscoveredTool {
   name: string
+  title: string
   description: string
   inputSchema: ToolInputSchema
 }
@@ -145,6 +146,27 @@ export class McpClient {
   }
 
   /**
+   * Call a tool on the MCP server
+   * @param toolName - Name of the tool to call
+   * @param args - Arguments to pass to the tool
+   * @returns Tool result
+   */
+  async callTool(toolName: string, args: Record<string, unknown>): Promise<{ content: Array<{ type: string; text?: string }> }> {
+    if (!this.client) {
+      throw new Error('Not connected to MCP server')
+    }
+
+    const result = await this.client.callTool({
+      name: toolName,
+      arguments: args,
+    })
+
+    return {
+      content: result.content as Array<{ type: string; text?: string }>,
+    }
+  }
+
+  /**
    * Discover tools from the server
    * Connects, fetches tool list, and disconnects
    */
@@ -157,16 +179,34 @@ export class McpClient {
       const tools = await this.listTools()
 
       // Convert to our format
-      return tools.map(tool => ({
-        name: tool.name,
-        description: tool.description || `Tool: ${tool.name}`,
-        inputSchema: convertMcpSchemaToToolInputSchema(tool.inputSchema as JsonSchema | undefined),
-      }))
+      return tools.map(tool => {
+        // Extract title from annotations, or generate from name
+        const annotations = tool.annotations as { title?: string } | undefined
+        const title = annotations?.title || generateTitleFromName(tool.name)
+
+        return {
+          name: tool.name,
+          title,
+          description: tool.description || `Tool: ${tool.name}`,
+          inputSchema: convertMcpSchemaToToolInputSchema(tool.inputSchema as JsonSchema | undefined),
+        }
+      })
     } finally {
       // Always disconnect
       await this.disconnect()
     }
   }
+}
+
+/**
+ * Generate a human-readable title from a tool name
+ * Converts snake_case or kebab-case to Title Case
+ * e.g. "get_file_contents" -> "Get File Contents"
+ */
+function generateTitleFromName(name: string): string {
+  return name
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
 }
 
 /**

@@ -489,6 +489,7 @@ export async function toolRoutes(fastify: FastifyInstance): Promise<void> {
           userId,
           type: 'mcp_connector',
           name: mcpTool.name,
+          title: mcpTool.title,
           description: mcpTool.description,
           inputSchema: mcpTool.inputSchema,
           config,
