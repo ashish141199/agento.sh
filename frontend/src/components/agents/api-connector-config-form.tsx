@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, Plus, Trash2, Eye, EyeOff } from 'lucide-react'
 import type { ApiConnectorConfig, ApiConnectorAuth } from '@/services/tool.service'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -64,6 +64,11 @@ export function ApiConnectorConfigForm({
   const [authApiKey, setAuthApiKey] = useState(value.authentication?.apiKey || '')
   const [authUsername, setAuthUsername] = useState(value.authentication?.username || '')
   const [authPassword, setAuthPassword] = useState(value.authentication?.password || '')
+
+  // Password visibility state
+  const [showToken, setShowToken] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Update parent when values change
   const updateConfig = (updates: Partial<ApiConnectorConfig>) => {
@@ -311,23 +316,45 @@ export function ApiConnectorConfigForm({
           </Select>
 
           {authType === 'bearer' && (
-            <Input
-              type="password"
-              placeholder="Bearer token"
-              value={authToken}
-              onChange={(e) => handleAuthValueChange('token', e.target.value)}
-              disabled={disabled}
-            />
+            <div className="relative">
+              <Input
+                type={showToken ? 'text' : 'password'}
+                placeholder="Bearer token"
+                value={authToken}
+                onChange={(e) => handleAuthValueChange('token', e.target.value)}
+                disabled={disabled}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                disabled={disabled}
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           )}
 
           {authType === 'api_key' && (
-            <Input
-              type="password"
-              placeholder="API key"
-              value={authApiKey}
-              onChange={(e) => handleAuthValueChange('apiKey', e.target.value)}
-              disabled={disabled}
-            />
+            <div className="relative">
+              <Input
+                type={showApiKey ? 'text' : 'password'}
+                placeholder="API key"
+                value={authApiKey}
+                onChange={(e) => handleAuthValueChange('apiKey', e.target.value)}
+                disabled={disabled}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                disabled={disabled}
+              >
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           )}
 
           {authType === 'basic' && (
@@ -338,13 +365,24 @@ export function ApiConnectorConfigForm({
                 onChange={(e) => handleAuthValueChange('username', e.target.value)}
                 disabled={disabled}
               />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={authPassword}
-                onChange={(e) => handleAuthValueChange('password', e.target.value)}
-                disabled={disabled}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={authPassword}
+                  onChange={(e) => handleAuthValueChange('password', e.target.value)}
+                  disabled={disabled}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  disabled={disabled}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           )}
         </CollapsibleContent>

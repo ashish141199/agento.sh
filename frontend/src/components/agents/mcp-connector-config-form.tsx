@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ChevronDown, Loader2, CheckCircle2, XCircle, Link2 } from 'lucide-react'
+import { ChevronDown, Loader2, CheckCircle2, XCircle, Link2, Eye, EyeOff } from 'lucide-react'
 import { toolService } from '@/services/tool.service'
 import { useAuthStore } from '@/stores/auth.store'
 import type { McpConnectorConfig, McpDiscoveredTool } from '@/services/tool.service'
@@ -60,6 +60,7 @@ export function McpConnectorConfigForm({
   const [authToken, setAuthToken] = useState(authentication?.token || '')
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [showToken, setShowToken] = useState(false)
 
   // Handle auth type change
   const handleAuthTypeChange = (type: AuthType) => {
@@ -233,13 +234,24 @@ export function McpConnectorConfigForm({
           </Select>
 
           {authType === 'bearer' && (
-            <Input
-              type="password"
-              placeholder="Bearer token"
-              value={authToken}
-              onChange={(e) => handleAuthTokenChange(e.target.value)}
-              disabled={disabled || isConnected}
-            />
+            <div className="relative">
+              <Input
+                type={showToken ? 'text' : 'password'}
+                placeholder="Bearer token"
+                value={authToken}
+                onChange={(e) => handleAuthTokenChange(e.target.value)}
+                disabled={disabled || isConnected}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                disabled={disabled || isConnected}
+              >
+                {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           )}
         </CollapsibleContent>
       </Collapsible>
