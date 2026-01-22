@@ -1,0 +1,23 @@
+Sample Text Document for Chunking Test
+
+This is a test document to verify that our text extraction and chunking works correctly.
+
+Section 1: Introduction
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Section 2: Features
+
+Our platform offers the following key features:
+- AI-powered automation
+- Real-time collaboration
+- Enterprise-grade security
+- Seamless integrations with 250+ tools
+
+Section 3: Technical Details
+
+The system uses advanced machine learning algorithms to process and understand natural language. It supports multiple input formats including PDF, Excel, CSV, and plain text files.
+
+Section 4: Conclusion
+
+This document serves as a test file for validating our document processing pipeline. If you can read this, the extraction is working correctly.

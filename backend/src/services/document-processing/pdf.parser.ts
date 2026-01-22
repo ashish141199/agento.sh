@@ -72,22 +72,57 @@ export class PdfParser implements DocumentParser {
   }
 
   /**
-   * Clean extracted text by removing excess whitespace
+   * Clean extracted text by removing excess whitespace and joining wrapped lines
+   * PDFs often have hard line breaks that aren't paragraph breaks - this joins them
    * @param text - Raw extracted text
-   * @returns Cleaned text
+   * @returns Cleaned text with proper paragraphs
    */
   private cleanText(text: string): string {
-    return text
-      // Replace multiple spaces with single space
+    // Step 1: Normalize spaces and trim lines
+    let cleaned = text
       .replace(/[ \t]+/g, ' ')
-      // Replace multiple newlines with double newline (paragraph break)
-      .replace(/\n{3,}/g, '\n\n')
-      // Trim lines
       .split('\n')
       .map(line => line.trim())
-      .join('\n')
-      // Final trim
-      .trim()
+      .filter(line => line.length > 0)
+
+    // Step 2: Join lines that are mid-sentence (PDF wrapping)
+    // A line is mid-sentence if it doesn't end with sentence-ending punctuation
+    // and the next line doesn't look like a new section/paragraph
+    const paragraphs: string[] = []
+    let currentParagraph = ''
+
+    for (let i = 0; i < cleaned.length; i++) {
+      const line = cleaned[i]!
+      const nextLine = cleaned[i + 1]
+
+      currentParagraph += (currentParagraph ? ' ' : '') + line
+
+      // Check if this line ends a paragraph:
+      // 1. Ends with sentence-ending punctuation (.!?) and next line starts with capital
+      // 2. Next line looks like a heading (short, starts with capital, no ending punctuation)
+      // 3. This is the last line
+      // 4. Next line starts with a bullet or number
+      const endsWithPunctuation = /[.!?:]["']?$/.test(line)
+      const nextStartsWithCapital = nextLine && /^[A-Z]/.test(nextLine)
+      const nextLooksLikeHeading = nextLine && nextLine.length < 80 && /^[A-Z]/.test(nextLine) && !/[.!?,]$/.test(nextLine)
+      const nextStartsWithBullet = nextLine && /^[-•*\d]/.test(nextLine)
+
+      const shouldBreak = !nextLine ||
+        (endsWithPunctuation && nextStartsWithCapital) ||
+        nextLooksLikeHeading ||
+        nextStartsWithBullet
+
+      if (shouldBreak) {
+        paragraphs.push(currentParagraph)
+        currentParagraph = ''
+      }
+    }
+
+    if (currentParagraph) {
+      paragraphs.push(currentParagraph)
+    }
+
+    return paragraphs.join('\n\n').trim()
   }
 
   /**

@@ -6,8 +6,16 @@
 import { pdfParser } from './pdf.parser'
 import { excelParser } from './excel.parser'
 import { textParser } from './text.parser'
+import { docxParser } from './docx.parser'
 import { websiteCrawler, WebsiteCrawler } from './website.crawler'
-import { textChunker, TextChunker, createChunker, chunkMarkdown } from './chunker.service'
+import {
+  textChunker,
+  TextChunker,
+  createChunker,
+  chunkMarkdown,
+  chunkTabular,
+  chunkCode,
+} from './chunker.service'
 import type {
   DocumentParser,
   ParsedDocument,
@@ -17,7 +25,7 @@ import type {
 } from './types'
 
 /** All available parsers */
-const parsers: DocumentParser[] = [pdfParser, excelParser, textParser]
+const parsers: DocumentParser[] = [pdfParser, excelParser, docxParser, textParser]
 
 /**
  * Get appropriate parser for a MIME type
@@ -64,7 +72,32 @@ export async function parseDocument(
 }
 
 /**
+ * MIME types that should use row-based (tabular) chunking
+ */
+const TABULAR_MIME_TYPES = [
+  'text/csv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
+
+/**
+ * MIME types that should use code-aware chunking
+ */
+const CODE_MIME_TYPES = [
+  'text/typescript',
+  'text/javascript',
+  'application/typescript',
+  'application/javascript',
+]
+
+/**
  * Parse and chunk a document in one operation
+ * Uses content-aware chunking based on MIME type:
+ * - Tabular data (CSV, Excel): Row-based chunking (never splits mid-row)
+ * - Code files (TS, JS): Code-aware chunking (respects functions/classes)
+ * - Markdown: Section-based chunking (splits at headers)
+ * - Other: Semantic chunking (splits at sentences)
+ *
  * @param buffer - File buffer
  * @param fileName - Original file name
  * @param mimeType - MIME type
@@ -76,6 +109,51 @@ export async function parseAndChunk(
   mimeType: string
 ): Promise<TextChunk[]> {
   const document = await parseDocument(buffer, fileName, mimeType)
+
+  // Use content-aware chunking based on MIME type
+  if (TABULAR_MIME_TYPES.includes(mimeType)) {
+    // For tabular data: chunk by rows within each section (sheet)
+    const allChunks: TextChunk[] = []
+
+    if (document.sections && document.sections.length > 0) {
+      for (const section of document.sections) {
+        const sectionChunks = chunkTabular(section.content, document.metadata.source, {
+          sheetName: section.metadata?.sheetName as string | undefined,
+        })
+        // Re-index chunks
+        for (const chunk of sectionChunks) {
+          allChunks.push({
+            ...chunk,
+            index: allChunks.length,
+            metadata: {
+              ...chunk.metadata,
+              section: section.title,
+            },
+          })
+        }
+      }
+    } else {
+      return chunkTabular(document.content, document.metadata.source)
+    }
+
+    return allChunks
+  }
+
+  if (CODE_MIME_TYPES.includes(mimeType)) {
+    // For code files: use code-aware chunking that respects functions/classes
+    if (document.sections && document.sections.length > 0) {
+      return chunkCode(document.content, document.metadata.source, document.sections)
+    }
+    // Fallback to regular chunking if no sections
+    return textChunker.chunkDocument(document)
+  }
+
+  if (mimeType === 'text/markdown') {
+    // For markdown: use section-based chunking
+    return chunkMarkdown(document.content, document.metadata.source)
+  }
+
+  // For other types (PDF, DOCX, plain text): use semantic chunking
   return textChunker.chunkDocument(document)
 }
 
@@ -159,4 +237,13 @@ export type {
   DocumentMetadata,
 } from './types'
 
-export { createChunker, TextChunker, WebsiteCrawler, websiteCrawler, textChunker, chunkMarkdown }
+export {
+  createChunker,
+  TextChunker,
+  WebsiteCrawler,
+  websiteCrawler,
+  textChunker,
+  chunkMarkdown,
+  chunkTabular,
+  chunkCode,
+}

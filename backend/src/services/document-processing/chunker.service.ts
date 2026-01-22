@@ -314,7 +314,8 @@ export class TextChunker {
    */
   private findBestSplitPoint(text: string, targetPosition: number): number {
     // Look for delimiters within a window around target
-    const windowStart = Math.max(0, targetPosition - 200)
+    // Use a wider window to find better split points
+    const windowStart = Math.max(0, targetPosition - 400)
     const windowEnd = Math.min(text.length, targetPosition + 100)
 
     let bestPosition = targetPosition
@@ -347,16 +348,29 @@ export class TextChunker {
       }
     }
 
-    // No good delimiter found, use target position
-    // But avoid splitting in middle of word
-    if (text[bestPosition] !== ' ' && bestPosition < text.length) {
-      // Find next space
-      const nextSpace = text.indexOf(' ', bestPosition)
-      if (nextSpace !== -1 && nextSpace - bestPosition < 50) {
-        bestPosition = nextSpace + 1
+    // No good delimiter found - try harder to find a sentence boundary
+    // Search backwards for sentence-ending punctuation followed by space
+    const sentenceEnders = ['. ', '? ', '! ', '.\n', '?\n', '!\n']
+    for (let pos = targetPosition; pos >= windowStart; pos--) {
+      for (const ender of sentenceEnders) {
+        if (text.slice(pos, pos + ender.length) === ender) {
+          const splitPos = pos + ender.length
+          if (splitPos >= this.config.minChunkSize) {
+            return splitPos
+          }
+        }
       }
     }
 
+    // Still no sentence boundary - at least don't split mid-word
+    // Search backwards for a space
+    for (let pos = targetPosition; pos >= windowStart; pos--) {
+      if (text[pos] === ' ' || text[pos] === '\n') {
+        return pos + 1
+      }
+    }
+
+    // Last resort: use target position
     return Math.min(bestPosition, text.length)
   }
 }
@@ -601,4 +615,174 @@ export const textChunker = new TextChunker()
  */
 export function createChunker(config: Partial<ChunkingConfig>): TextChunker {
   return new TextChunker(config)
+}
+
+/**
+ * Chunk tabular data (CSV, Excel) by rows
+ * Never splits mid-row - each chunk contains complete rows
+ *
+ * @param content - Tabular content with rows separated by newlines
+ * @param source - Source identifier
+ * @param options - Chunking options
+ * @returns Array of TextChunk objects
+ */
+export function chunkTabular(
+  content: string,
+  source: string,
+  options: { maxChunkSize?: number; sheetName?: string } = {}
+): TextChunk[] {
+  const maxChunkSize = options.maxChunkSize ?? CHUNKING_DEFAULTS.chunkSize
+  const minChunkSize = CHUNKING_DEFAULTS.minChunkSize
+
+  const rows = content.split('\n').filter(row => row.trim().length > 0)
+  const chunks: TextChunk[] = []
+
+  let currentRows: string[] = []
+  let currentLength = 0
+  let charOffset = 0
+
+  for (const row of rows) {
+    // If adding this row would exceed max size, save current chunk first
+    if (currentLength > 0 && currentLength + row.length + 1 > maxChunkSize) {
+      const chunkContent = currentRows.join('\n')
+      if (chunkContent.length >= minChunkSize) {
+        chunks.push({
+          index: chunks.length,
+          content: chunkContent,
+          length: chunkContent.length,
+          metadata: {
+            source,
+            sheetName: options.sheetName,
+            charStart: charOffset,
+            charEnd: charOffset + chunkContent.length,
+          },
+        })
+        charOffset += chunkContent.length + 1 // +1 for the newline between chunks
+      }
+      currentRows = []
+      currentLength = 0
+    }
+
+    currentRows.push(row)
+    currentLength += row.length + 1 // +1 for newline
+  }
+
+  // Don't forget the last chunk
+  if (currentRows.length > 0) {
+    const chunkContent = currentRows.join('\n')
+    if (chunkContent.length >= minChunkSize || chunks.length === 0) {
+      chunks.push({
+        index: chunks.length,
+        content: chunkContent,
+        length: chunkContent.length,
+        metadata: {
+          source,
+          sheetName: options.sheetName,
+          charStart: charOffset,
+          charEnd: charOffset + chunkContent.length,
+        },
+      })
+    } else if (chunks.length > 0) {
+      // Merge small last chunk with previous
+      const lastChunk = chunks[chunks.length - 1]!
+      lastChunk.content += '\n' + chunkContent
+      lastChunk.length = lastChunk.content.length
+      lastChunk.metadata.charEnd = lastChunk.metadata.charStart + lastChunk.length
+    }
+  }
+
+  return chunks
+}
+
+/**
+ * Chunk code files by logical units (functions, classes, etc.)
+ * Keeps complete code blocks together, only splitting very large blocks
+ *
+ * @param content - Code content
+ * @param source - Source identifier
+ * @param sections - Pre-extracted sections from parser
+ * @param options - Chunking options
+ * @returns Array of TextChunk objects
+ */
+export function chunkCode(
+  content: string,
+  source: string,
+  sections: Array<{ title?: string; content: string }>,
+  options: { maxChunkSize?: number } = {}
+): TextChunk[] {
+  const maxChunkSize = options.maxChunkSize ?? 1500
+  const minChunkSize = CHUNKING_DEFAULTS.minChunkSize
+  const chunks: TextChunk[] = []
+  let charOffset = 0
+
+  for (const section of sections) {
+    const sectionContent = section.content.trim()
+    if (!sectionContent) continue
+
+    if (sectionContent.length <= maxChunkSize) {
+      // Section fits in one chunk
+      chunks.push({
+        index: chunks.length,
+        content: sectionContent,
+        length: sectionContent.length,
+        metadata: {
+          source,
+          section: section.title,
+          charStart: charOffset,
+          charEnd: charOffset + sectionContent.length,
+        },
+      })
+      charOffset += sectionContent.length
+    } else {
+      // Section too large - split by line breaks, preserving structure
+      const lines = sectionContent.split('\n')
+      let currentChunk: string[] = []
+      let currentLength = 0
+
+      for (const line of lines) {
+        if (currentLength > 0 && currentLength + line.length + 1 > maxChunkSize) {
+          // Save current chunk
+          const chunkContent = currentChunk.join('\n')
+          if (chunkContent.length >= minChunkSize) {
+            chunks.push({
+              index: chunks.length,
+              content: chunkContent,
+              length: chunkContent.length,
+              metadata: {
+                source,
+                section: section.title ? `${section.title} (continued)` : undefined,
+                charStart: charOffset,
+                charEnd: charOffset + chunkContent.length,
+              },
+            })
+            charOffset += chunkContent.length
+          }
+          currentChunk = []
+          currentLength = 0
+        }
+
+        currentChunk.push(line)
+        currentLength += line.length + 1
+      }
+
+      // Save remaining
+      if (currentChunk.length > 0) {
+        const chunkContent = currentChunk.join('\n')
+        chunks.push({
+          index: chunks.length,
+          content: chunkContent,
+          length: chunkContent.length,
+          metadata: {
+            source,
+            section: section.title,
+            charStart: charOffset,
+            charEnd: charOffset + chunkContent.length,
+          },
+        })
+        charOffset += chunkContent.length
+      }
+    }
+  }
+
+  return chunks
 }
