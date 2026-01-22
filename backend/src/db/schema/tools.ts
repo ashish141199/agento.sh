@@ -69,12 +69,13 @@ export interface ApiConnectorConfig {
 
 /**
  * MCP Connector configuration
+ * Each MCP tool stores its own server connection info
  */
 export interface McpConnectorConfig {
   serverUrl: string
-  selectedTools?: string[]
+  toolName: string
   authentication?: {
-    type: 'none' | 'bearer' | 'oauth2'
+    type: 'none' | 'bearer'
     token?: string
   }
 }

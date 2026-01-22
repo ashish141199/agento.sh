@@ -19,7 +19,11 @@ import {
   updateToolSchema,
   assignToolSchema,
   updateAgentToolSchema,
+  discoverMcpToolsSchema,
+  importMcpToolsSchema,
 } from '../schemas/tool.schema'
+import type { McpConnectorConfig } from '../db/schema/tools'
+import { discoverMcpTools } from '../services/mcp.service'
 
 /**
  * Extract user ID from authorization header
@@ -390,5 +394,127 @@ export async function toolRoutes(fastify: FastifyInstance): Promise<void> {
       success: true,
       message: 'Tool removed from agent',
     })
+  })
+
+  /**
+   * Discover tools from an MCP server
+   * POST /tools/mcp/discover
+   */
+  fastify.post('/tools/mcp/discover', async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request)
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        message: 'Unauthorized',
+      })
+    }
+
+    const result = discoverMcpToolsSchema.safeParse(request.body)
+
+    if (!result.success) {
+      const firstIssue = result.error.issues[0]
+      return reply.status(400).send({
+        success: false,
+        message: firstIssue?.message || 'Validation error',
+      })
+    }
+
+    const { serverUrl, authentication } = result.data
+
+    try {
+      const tools = await discoverMcpTools(serverUrl, authentication)
+
+      return reply.send({
+        success: true,
+        message: `Discovered ${tools.length} tool${tools.length !== 1 ? 's' : ''}`,
+        data: { tools },
+      })
+    } catch (error) {
+      console.error('[MCP Discovery] Error:', error)
+      return reply.status(500).send({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to discover MCP tools',
+      })
+    }
+  })
+
+  /**
+   * Import MCP tools and assign them to an agent
+   * POST /agents/:agentId/tools/mcp/import
+   */
+  fastify.post('/agents/:agentId/tools/mcp/import', async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request)
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        message: 'Unauthorized',
+      })
+    }
+
+    const { agentId } = request.params as { agentId: string }
+
+    const agentBelongs = await agentBelongsToUser(agentId, userId)
+    if (!agentBelongs) {
+      return reply.status(404).send({
+        success: false,
+        message: 'Agent not found',
+      })
+    }
+
+    const result = importMcpToolsSchema.safeParse(request.body)
+
+    if (!result.success) {
+      const firstIssue = result.error.issues[0]
+      return reply.status(400).send({
+        success: false,
+        message: firstIssue?.message || 'Validation error',
+      })
+    }
+
+    const { tools, serverUrl, authentication } = result.data
+
+    try {
+      const createdTools = []
+
+      // Create each tool and assign it to the agent
+      for (const mcpTool of tools) {
+        // Create the tool with MCP config
+        const config: McpConnectorConfig = {
+          serverUrl,
+          toolName: mcpTool.name,
+          authentication,
+        }
+
+        const tool = await createTool({
+          userId,
+          type: 'mcp_connector',
+          name: mcpTool.name,
+          description: mcpTool.description,
+          inputSchema: mcpTool.inputSchema,
+          config,
+        })
+
+        // Assign to agent
+        await assignToolToAgent({
+          agentId,
+          toolId: tool.id,
+          enabled: true,
+        })
+
+        createdTools.push(tool)
+      }
+
+      return reply.status(201).send({
+        success: true,
+        message: `Imported ${createdTools.length} tool${createdTools.length !== 1 ? 's' : ''}`,
+        data: { tools: createdTools },
+      })
+    } catch (error) {
+      console.error('[MCP Import] Error:', error)
+      return reply.status(500).send({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to import MCP tools',
+      })
+    }
   })
 }

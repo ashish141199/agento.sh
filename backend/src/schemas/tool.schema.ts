@@ -11,7 +11,7 @@ export const toolInputTypeSchema = z.enum(['text', 'number', 'boolean', 'list', 
  */
 const baseToolInputSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50, 'Name too long').regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Name must start with a letter and contain only letters, numbers, and underscores'),
-  description: z.string().min(1, 'Description is required').max(200, 'Description too long'),
+  description: z.string().min(1, 'Description is required').max(1000, 'Description too long'),
   type: toolInputTypeSchema,
   required: z.boolean().default(false),
   default: z.any().optional(),
@@ -67,15 +67,47 @@ export const apiConnectorConfigSchema = z.object({
 })
 
 /**
+ * MCP authentication schema
+ */
+export const mcpAuthSchema = z.object({
+  type: z.enum(['none', 'bearer']),
+  token: z.string().optional(),
+})
+
+/**
  * MCP Connector config schema
+ * Each MCP tool stores its own server connection info
  */
 export const mcpConnectorConfigSchema = z.object({
-  serverUrl: z.string().url('Invalid MCP server URL'),
-  selectedTools: z.array(z.string()).optional(),
-  authentication: z.object({
-    type: z.enum(['none', 'bearer', 'oauth2']),
-    token: z.string().optional(),
-  }).optional(),
+  serverUrl: z.string().min(1, 'Server URL is required'),
+  toolName: z.string().min(1, 'Tool name is required'),
+  authentication: mcpAuthSchema.optional(),
+})
+
+/**
+ * MCP discovered tool schema (from server discovery)
+ */
+export const mcpDiscoveredToolSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  inputSchema: toolInputSchemaSchema,
+})
+
+/**
+ * Schema for discovering MCP tools
+ */
+export const discoverMcpToolsSchema = z.object({
+  serverUrl: z.string().min(1, 'Server URL is required'),
+  authentication: mcpAuthSchema.optional(),
+})
+
+/**
+ * Schema for importing MCP tools
+ */
+export const importMcpToolsSchema = z.object({
+  tools: z.array(mcpDiscoveredToolSchema).min(1, 'At least one tool is required'),
+  serverUrl: z.string().min(1, 'Server URL is required'),
+  authentication: mcpAuthSchema.optional(),
 })
 
 /**
@@ -89,7 +121,7 @@ export const toolConfigSchema = z.union([apiConnectorConfigSchema, mcpConnectorC
 export const createToolSchema = z.object({
   type: z.enum(['api_connector', 'mcp_connector']).default('api_connector'),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-  description: z.string().max(500, 'Description too long').optional(),
+  description: z.string().max(2000, 'Description too long').optional(),
   enabled: z.boolean().default(true),
   inputSchema: toolInputSchemaSchema.optional(),
   config: toolConfigSchema.nullable().optional(),
@@ -100,7 +132,7 @@ export const createToolSchema = z.object({
  */
 export const updateToolSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long').optional(),
-  description: z.string().max(500, 'Description too long').optional(),
+  description: z.string().max(2000, 'Description too long').optional(),
   enabled: z.boolean().optional(),
   inputSchema: toolInputSchemaSchema.optional(),
   config: toolConfigSchema.nullable().optional(),
@@ -129,7 +161,11 @@ export type ToolInput = z.infer<typeof toolInputSchema>
 export type ToolInputSchema = z.infer<typeof toolInputSchemaSchema>
 export type ApiConnectorAuth = z.infer<typeof apiConnectorAuthSchema>
 export type ApiConnectorConfig = z.infer<typeof apiConnectorConfigSchema>
+export type McpAuth = z.infer<typeof mcpAuthSchema>
 export type McpConnectorConfig = z.infer<typeof mcpConnectorConfigSchema>
+export type McpDiscoveredTool = z.infer<typeof mcpDiscoveredToolSchema>
+export type DiscoverMcpToolsInput = z.infer<typeof discoverMcpToolsSchema>
+export type ImportMcpToolsInput = z.infer<typeof importMcpToolsSchema>
 export type ToolConfig = z.infer<typeof toolConfigSchema>
 export type CreateToolInput = z.infer<typeof createToolSchema>
 export type UpdateToolInput = z.infer<typeof updateToolSchema>

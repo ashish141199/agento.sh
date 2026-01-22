@@ -31,6 +31,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/multipart": "^9.4.0",
+    "@modelcontextprotocol/sdk": "^1.25.3",
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "adm-zip": "^0.5.16",
     "ai": "^6.0.39",

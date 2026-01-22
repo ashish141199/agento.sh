@@ -12,14 +12,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Loader2, Plug, Zap, Puzzle, ArrowLeft, Clipboard, Check } from 'lucide-react'
+import { Loader2, Plug, Zap, Puzzle, ArrowLeft, Clipboard, Check, Info } from 'lucide-react'
 import { InputSchemaBuilder } from './input-schema-builder'
 import { ApiConnectorConfigForm } from './api-connector-config-form'
+import { McpConnectorConfigForm } from './mcp-connector-config-form'
 import type {
   Tool,
   ToolType,
   ToolInputSchema,
   ApiConnectorConfig,
+  McpConnectorConfig,
+  McpDiscoveredTool,
   CreateToolInput,
   UpdateToolInput,
 } from '@/services/tool.service'
@@ -30,19 +33,21 @@ interface AddToolDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (data: CreateToolInput | UpdateToolInput) => Promise<Tool>
+  onImportMcpTools?: (tools: McpDiscoveredTool[], serverUrl: string, auth?: McpConnectorConfig['authentication']) => Promise<void>
   tool?: Tool
   isSaving?: boolean
 }
 
 /**
  * Two-step dialog for adding/editing tools
- * Step 1: Name, Description, Inputs, Action Type
- * Step 2: Configure the specific action (API Connector, MCP, etc.)
+ * - API Connector: Name, Description, Action, Inputs → Configure API
+ * - MCP Connector: Action → Connect to server, select tools → Import multiple tools
  */
 export function AddToolDialog({
   open,
   onOpenChange,
   onSave,
+  onImportMcpTools,
   tool,
   isSaving = false,
 }: AddToolDialogProps) {
@@ -55,13 +60,20 @@ export function AddToolDialog({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [inputSchema, setInputSchema] = useState<ToolInputSchema>({ inputs: [] })
-  const [toolType, setToolType] = useState<ToolType>('api_connector')
+  const [toolType, setToolType] = useState<ToolType | null>(null)
 
   // Step 2 state - API Connector
   const [apiConfig, setApiConfig] = useState<ApiConnectorConfig>({
     method: 'GET',
     url: '',
   })
+
+  // Step 2 state - MCP Connector
+  const [mcpServerUrl, setMcpServerUrl] = useState('')
+  const [mcpAuth, setMcpAuth] = useState<McpConnectorConfig['authentication']>()
+  const [mcpDiscoveredTools, setMcpDiscoveredTools] = useState<McpDiscoveredTool[]>([])
+  const [mcpSelectedTools, setMcpSelectedTools] = useState<string[]>([])
+  const [mcpIsConnected, setMcpIsConnected] = useState(false)
 
   // Created tool reference (for editing in step 2)
   const [createdTool, setCreatedTool] = useState<Tool | null>(null)
@@ -73,26 +85,36 @@ export function AddToolDialog({
   useEffect(() => {
     if (open && !isCreating) {
       if (tool) {
-        // Editing existing tool - go directly to step 2 or stay on step 1 if no config
+        // Editing existing tool
         setName(tool.name)
         setDescription(tool.description || '')
         setInputSchema(tool.inputSchema || { inputs: [] })
         setToolType(tool.type)
         setCreatedTool(tool)
 
-        if (tool.config) {
+        if (tool.type === 'api_connector' && tool.config) {
           setApiConfig(tool.config as ApiConnectorConfig)
+          setStep('configure')
+        } else if (tool.type === 'mcp_connector' && tool.config) {
+          const mcpConfig = tool.config as McpConnectorConfig
+          setMcpServerUrl(mcpConfig.serverUrl)
+          setMcpAuth(mcpConfig.authentication)
           setStep('configure')
         } else {
           setStep('define')
         }
       } else {
-        // Creating new tool
+        // Creating new tool - reset everything
         setName('')
         setDescription('')
         setInputSchema({ inputs: [] })
-        setToolType('api_connector')
+        setToolType(null) // No default selection
         setApiConfig({ method: 'GET', url: '' })
+        setMcpServerUrl('')
+        setMcpAuth(undefined)
+        setMcpDiscoveredTools([])
+        setMcpSelectedTools([])
+        setMcpIsConnected(false)
         setCreatedTool(null)
         setStep('define')
       }
@@ -107,39 +129,48 @@ export function AddToolDialog({
   }, [open])
 
   // Step 1 validation
-  const isStep1Valid = name.trim().length > 0
+  const isStep1Valid = toolType === 'api_connector'
+    ? name.trim().length > 0
+    : toolType === 'mcp_connector'
 
-  // Step 2 validation (API Connector)
-  const isStep2Valid = apiConfig.url.trim().length > 0
+  // Step 2 validation
+  const isStep2Valid = toolType === 'api_connector'
+    ? apiConfig.url.trim().length > 0
+    : mcpIsConnected && mcpSelectedTools.length > 0
 
   // Handle Step 1 -> Step 2 transition
   const handleNext = async () => {
-    if (!isStep1Valid) return
+    if (!isStep1Valid || !toolType) return
 
-    try {
-      // Mark as creating to prevent useEffect from resetting step
-      setIsCreating(true)
+    if (toolType === 'api_connector') {
+      try {
+        // Mark as creating to prevent useEffect from resetting step
+        setIsCreating(true)
 
-      // Save tool with basic info (Step 1 data)
-      const savedTool = await onSave({
-        type: toolType,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        inputSchema: inputSchema.inputs.length > 0 ? inputSchema : undefined,
-        config: null, // No config yet
-      })
+        // Save tool with basic info (Step 1 data)
+        const savedTool = await onSave({
+          type: toolType,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          inputSchema: inputSchema.inputs.length > 0 ? inputSchema : undefined,
+          config: null, // No config yet
+        })
 
-      setCreatedTool(savedTool)
+        setCreatedTool(savedTool)
+        setStep('configure')
+      } catch {
+        // Error handled by parent
+        setIsCreating(false)
+      }
+    } else if (toolType === 'mcp_connector') {
+      // For MCP, just go to step 2 (no tool created yet)
       setStep('configure')
-    } catch {
-      // Error handled by parent
-      setIsCreating(false)
     }
   }
 
-  // Handle Step 2 save (final save with config)
-  const handleSaveConfig = async () => {
-    if (!isStep2Valid || !createdTool) return
+  // Handle Step 2 save (API Connector)
+  const handleSaveApiConfig = async () => {
+    if (!apiConfig.url.trim() || !createdTool) return
 
     try {
       await onSave({
@@ -152,93 +183,74 @@ export function AddToolDialog({
     }
   }
 
+  // Handle Step 2 save (MCP Connector - imports multiple tools)
+  const handleImportMcpTools = async () => {
+    if (!mcpIsConnected || mcpSelectedTools.length === 0 || !onImportMcpTools) return
+
+    try {
+      const toolsToImport = mcpDiscoveredTools.filter(t => mcpSelectedTools.includes(t.name))
+      await onImportMcpTools(toolsToImport, mcpServerUrl, mcpAuth)
+      onOpenChange(false)
+    } catch {
+      // Error handled by parent
+    }
+  }
+
   // Handle back button
   const handleBack = () => {
     setStep('define')
+    // Reset MCP state when going back
+    if (toolType === 'mcp_connector') {
+      setMcpIsConnected(false)
+      setMcpDiscoveredTools([])
+      setMcpSelectedTools([])
+    }
   }
 
-  // Close handler - confirm if in step 2
+  // Close handler
   const handleClose = (newOpen: boolean) => {
-    if (!newOpen && step === 'configure' && !isEditing) {
-      // User is closing mid-creation, tool was already created with null config
-      // Could show confirmation, but for simplicity just close
-    }
     onOpenChange(newOpen)
+  }
+
+  // Get dialog title
+  const getDialogTitle = () => {
+    if (step === 'configure') {
+      return (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 -ml-2"
+            onClick={handleBack}
+            disabled={isSaving}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span>{toolType === 'api_connector' ? 'Configure API' : 'Import from MCP'}</span>
+        </div>
+      )
+    }
+
+    if (isEditing) return 'Edit Tool'
+    if (toolType === 'mcp_connector') return 'Import from MCP'
+    return 'Add Tool'
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {step === 'define' ? (
-              isEditing ? 'Edit Tool' : 'Add Tool'
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 -ml-2"
-                  onClick={handleBack}
-                  disabled={isSaving}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <span>Configure {toolType === 'api_connector' ? 'API' : 'MCP'}</span>
-              </div>
-            )}
-          </DialogTitle>
+          <DialogTitle>{getDialogTitle()}</DialogTitle>
         </DialogHeader>
 
         {step === 'define' ? (
           // Step 1: Define Tool
           <div className="space-y-6 py-4">
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="tool-name">Name *</Label>
-              <Input
-                id="tool-name"
-                placeholder="Get Weather"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isSaving}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="tool-description">Description</Label>
-              <Textarea
-                id="tool-description"
-                placeholder="Fetches current weather and forecast for any city"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                disabled={isSaving}
-                rows={2}
-              />
-              <p className="text-xs text-neutral-500">
-                Helps the AI understand when to use this tool
-              </p>
-            </div>
-
-            {/* Inputs */}
-            <div className="space-y-2">
-              <Label>Inputs</Label>
-              <p className="text-xs text-neutral-500 mb-2">
-                What should the AI provide when calling this tool?
-              </p>
-              <InputSchemaBuilder
-                value={inputSchema}
-                onChange={setInputSchema}
-                disabled={isSaving}
-              />
-            </div>
-
-            {/* Action Type */}
+            {/* Action Type - Always shown first */}
             <div className="space-y-2">
               <Label>Action</Label>
               <p className="text-xs text-neutral-500 mb-2">
-                What should this tool do?
+                What kind of tool do you want to add?
               </p>
               <div className="grid grid-cols-3 gap-3">
                 <ActionTypeCard
@@ -253,8 +265,7 @@ export function AddToolDialog({
                   title="Connect to MCP"
                   selected={toolType === 'mcp_connector'}
                   onClick={() => setToolType('mcp_connector')}
-                  disabled={true} // Coming soon
-                  comingSoon
+                  disabled={isSaving}
                 />
                 <ActionTypeCard
                   icon={<Puzzle className="h-5 w-5" />}
@@ -266,32 +277,110 @@ export function AddToolDialog({
                 />
               </div>
             </div>
+
+            {/* API Connector fields - only shown when API is selected */}
+            {toolType === 'api_connector' && (
+              <>
+                {/* Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="tool-name">Name *</Label>
+                  <Input
+                    id="tool-name"
+                    placeholder="Get Weather"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <Label htmlFor="tool-description">Description</Label>
+                  <Textarea
+                    id="tool-description"
+                    placeholder="Fetches current weather and forecast for any city"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={isSaving}
+                    rows={2}
+                  />
+                  <p className="text-xs text-neutral-500">
+                    Helps the AI understand when to use this tool
+                  </p>
+                </div>
+
+                {/* Inputs */}
+                <div className="space-y-2">
+                  <Label>Inputs</Label>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    What should the AI provide when calling this tool?
+                  </p>
+                  <InputSchemaBuilder
+                    value={inputSchema}
+                    onChange={setInputSchema}
+                    disabled={isSaving}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* MCP info box - only shown when MCP is selected */}
+            {toolType === 'mcp_connector' && (
+              <div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="font-medium">MCP servers provide ready-to-use tools</p>
+                  <p className="mt-1 text-blue-600 dark:text-blue-400">
+                    Connect to a server to browse and import tools. Each imported tool will appear separately in your tools list.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           // Step 2: Configure Action
           <div className="space-y-4 py-4">
-            {/* Show available inputs as reference */}
-            {inputSchema.inputs.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs text-neutral-500">Available inputs:</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {inputSchema.inputs.map((input) => (
-                    <InputChip key={input.name} name={input.name} />
-                  ))}
-                </div>
-                <p className="text-xs text-neutral-500">
-                  Use <code className="text-xs">{`{{name}}`}</code> syntax to insert inputs
-                </p>
-              </div>
-            )}
-
             {/* API Connector Config */}
             {toolType === 'api_connector' && (
-              <ApiConnectorConfigForm
-                value={apiConfig}
-                onChange={setApiConfig}
+              <>
+                {/* Show available inputs as reference */}
+                {inputSchema.inputs.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-neutral-500">Available inputs:</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {inputSchema.inputs.map((input) => (
+                        <InputChip key={input.name} name={input.name} />
+                      ))}
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Use <code className="text-xs">{`{{name}}`}</code> syntax to insert inputs
+                    </p>
+                  </div>
+                )}
+
+                <ApiConnectorConfigForm
+                  value={apiConfig}
+                  onChange={setApiConfig}
+                  disabled={isSaving}
+                  availableInputs={inputSchema.inputs.map((i) => i.name)}
+                />
+              </>
+            )}
+
+            {/* MCP Connector Config */}
+            {toolType === 'mcp_connector' && (
+              <McpConnectorConfigForm
+                serverUrl={mcpServerUrl}
+                onServerUrlChange={setMcpServerUrl}
+                authentication={mcpAuth}
+                onAuthenticationChange={setMcpAuth}
+                discoveredTools={mcpDiscoveredTools}
+                onDiscoveredToolsChange={setMcpDiscoveredTools}
+                selectedTools={mcpSelectedTools}
+                onSelectedToolsChange={setMcpSelectedTools}
+                isConnected={mcpIsConnected}
+                onIsConnectedChange={setMcpIsConnected}
                 disabled={isSaving}
-                availableInputs={inputSchema.inputs.map((i) => i.name)}
               />
             )}
           </div>
@@ -317,8 +406,8 @@ export function AddToolDialog({
                 'Next'
               )}
             </Button>
-          ) : (
-            <Button onClick={handleSaveConfig} disabled={!isStep2Valid || isSaving || !createdTool}>
+          ) : toolType === 'api_connector' ? (
+            <Button onClick={handleSaveApiConfig} disabled={!isStep2Valid || isSaving || !createdTool}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -326,6 +415,17 @@ export function AddToolDialog({
                 </>
               ) : (
                 'Save Tool'
+              )}
+            </Button>
+          ) : (
+            <Button onClick={handleImportMcpTools} disabled={!isStep2Valid || isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                `Import ${mcpSelectedTools.length} Tool${mcpSelectedTools.length !== 1 ? 's' : ''}`
               )}
             </Button>
           )}

@@ -51,14 +51,24 @@ export interface ApiConnectorConfig {
 
 /**
  * MCP Connector config
+ * Each MCP tool stores its own server connection info
  */
 export interface McpConnectorConfig {
   serverUrl: string
-  selectedTools?: string[]
+  toolName: string // The specific tool from this server
   authentication?: {
-    type: 'none' | 'bearer' | 'oauth2'
+    type: 'none' | 'bearer'
     token?: string
   }
+}
+
+/**
+ * MCP tool discovered from a server
+ */
+export interface McpDiscoveredTool {
+  name: string
+  description: string
+  inputSchema: ToolInputSchema
 }
 
 /**
@@ -216,4 +226,38 @@ export const toolService = {
    */
   removeFromAgent: (agentId: string, toolId: string, token: string) =>
     api.delete<void>(`/agents/${agentId}/tools/${toolId}`, token),
+
+  /**
+   * Discover tools from an MCP server
+   * @param serverUrl - MCP server URL
+   * @param auth - Optional authentication
+   * @param token - Access token
+   */
+  discoverMcpTools: (
+    serverUrl: string,
+    auth: McpConnectorConfig['authentication'] | undefined,
+    token: string
+  ) =>
+    api.post<{ tools: McpDiscoveredTool[] }>('/tools/mcp/discover', { serverUrl, authentication: auth }, token),
+
+  /**
+   * Import multiple tools from an MCP server
+   * @param agentId - Agent ID to assign tools to
+   * @param tools - Tools to import
+   * @param serverUrl - MCP server URL
+   * @param auth - Optional authentication
+   * @param token - Access token
+   */
+  importMcpTools: (
+    agentId: string,
+    tools: McpDiscoveredTool[],
+    serverUrl: string,
+    auth: McpConnectorConfig['authentication'] | undefined,
+    token: string
+  ) =>
+    api.post<{ tools: Tool[] }>(`/agents/${agentId}/tools/mcp/import`, {
+      tools,
+      serverUrl,
+      authentication: auth,
+    }, token),
 }

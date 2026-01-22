@@ -12,8 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Globe, Pencil, Trash2, AlertCircle } from 'lucide-react'
-import type { ToolWithAssignment, ApiConnectorConfig } from '@/services/tool.service'
+import { Globe, Pencil, Trash2, AlertCircle, Zap } from 'lucide-react'
+import type { ToolWithAssignment, ApiConnectorConfig, McpConnectorConfig } from '@/services/tool.service'
 
 interface ToolCardProps {
   tool: ToolWithAssignment
@@ -33,10 +33,20 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
     setShowDeleteDialog(false)
   }
 
-  const config = tool.config as ApiConnectorConfig | null
   const inputCount = tool.inputSchema?.inputs?.length || 0
-  const isConfigured = !!config
-  const toolTypeLabel = tool.type === 'api_connector' ? 'API' : 'MCP'
+  const isConfigured = !!tool.config
+  const isMcp = tool.type === 'mcp_connector'
+  const apiConfig = !isMcp ? (tool.config as ApiConnectorConfig | null) : null
+  const mcpConfig = isMcp ? (tool.config as McpConnectorConfig | null) : null
+
+  // Extract server hostname for MCP display
+  const getServerHost = (url: string) => {
+    try {
+      return new URL(url).hostname
+    } catch {
+      return url
+    }
+  }
 
   return (
     <>
@@ -47,21 +57,35 @@ export function ToolCard({ tool, onEdit, onRemove }: ToolCardProps) {
       }`}>
         <div className={`p-2 rounded-md ${
           isConfigured
-            ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+            ? isMcp
+              ? 'bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300'
+              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
             : 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300'
         }`}>
-          {isConfigured ? <Globe className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+          {!isConfigured ? (
+            <AlertCircle className="h-5 w-5" />
+          ) : isMcp ? (
+            <Zap className="h-5 w-5" />
+          ) : (
+            <Globe className="h-5 w-5" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
             {tool.name}
           </div>
-          <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
-            <span>{toolTypeLabel}</span>
-            {config && (
+          <div className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-2 flex-wrap">
+            <span>{isMcp ? 'MCP' : 'API'}</span>
+            {apiConfig && (
               <>
                 <span>&middot;</span>
-                <span>{config.method}</span>
+                <span>{apiConfig.method}</span>
+              </>
+            )}
+            {mcpConfig && (
+              <>
+                <span>&middot;</span>
+                <span className="truncate max-w-[150px]">{getServerHost(mcpConfig.serverUrl)}</span>
               </>
             )}
             {inputCount > 0 && (

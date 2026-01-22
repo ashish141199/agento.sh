@@ -11,6 +11,8 @@ import {
   type ToolWithAssignment,
   type CreateToolInput,
   type UpdateToolInput,
+  type McpDiscoveredTool,
+  type McpConnectorConfig,
 } from '@/services/tool.service'
 import { useAuthStore } from '@/stores/auth.store'
 import { notification } from '@/lib/notifications'
@@ -102,6 +104,32 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
     },
   })
 
+  // Import MCP tools mutation
+  const importMcpToolsMutation = useMutation({
+    mutationFn: async ({
+      tools,
+      serverUrl,
+      auth,
+    }: {
+      tools: McpDiscoveredTool[]
+      serverUrl: string
+      auth?: McpConnectorConfig['authentication']
+    }) => {
+      const token = useAuthStore.getState().accessToken
+      if (!token || !agentId) throw new Error('No access token or agent ID')
+
+      const response = await toolService.importMcpTools(agentId, tools, serverUrl, auth, token)
+      return response.data?.tools || []
+    },
+    onSuccess: (tools) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-tools', agentId] })
+      notification.success(`Imported ${tools.length} tool${tools.length !== 1 ? 's' : ''} successfully`)
+    },
+    onError: () => {
+      notification.error('Failed to import MCP tools')
+    },
+  })
+
   const handleSaveTool = async (data: CreateToolInput | UpdateToolInput): Promise<Tool> => {
     setIsSaving(true)
     try {
@@ -132,6 +160,19 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
 
   const handleRemoveTool = (toolId: string) => {
     removeToolMutation.mutate(toolId)
+  }
+
+  const handleImportMcpTools = async (
+    tools: McpDiscoveredTool[],
+    serverUrl: string,
+    auth?: McpConnectorConfig['authentication']
+  ) => {
+    setIsSaving(true)
+    try {
+      await importMcpToolsMutation.mutateAsync({ tools, serverUrl, auth })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleCloseDialog = (open: boolean) => {
@@ -197,6 +238,7 @@ export function AgentToolsForm({ agentId, disabled = false }: AgentToolsFormProp
         open={showAddDialog}
         onOpenChange={handleCloseDialog}
         onSave={handleSaveTool}
+        onImportMcpTools={handleImportMcpTools}
         tool={editingTool || undefined}
         isSaving={isSaving}
       />
