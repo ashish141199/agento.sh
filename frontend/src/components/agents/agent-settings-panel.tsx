@@ -18,8 +18,10 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ArrowLeft, X } from 'lucide-react'
-import { CONVERSATION_HISTORY_OPTIONS } from '@/lib/defaults'
+import { CONVERSATION_HISTORY_OPTIONS, KNOWLEDGE_RETRIEVAL_MODE_OPTIONS } from '@/lib/defaults'
+import type { KnowledgeSettings } from '@/services/agent.service'
 
 /** Model data structure */
 interface Model {
@@ -28,7 +30,7 @@ interface Model {
 }
 
 /** Settings tab values */
-type SettingsTabValue = 'model' | 'memory' | 'chat'
+type SettingsTabValue = 'model' | 'memory' | 'chat' | 'knowledge'
 
 /** Props for AgentSettingsPanel */
 interface AgentSettingsPanelProps {
@@ -70,6 +72,10 @@ interface AgentSettingsPanelProps {
   onAddPrompt: () => void
   /** Remove prompt handler */
   onRemovePrompt: (index: number) => void
+  /** Knowledge retrieval mode */
+  knowledgeRetrievalMode: KnowledgeSettings['mode']
+  /** Knowledge retrieval mode change handler */
+  onKnowledgeRetrievalModeChange: (mode: KnowledgeSettings['mode']) => void
 }
 
 /**
@@ -96,6 +102,8 @@ export function AgentSettingsPanel({
   onNewPromptChange,
   onAddPrompt,
   onRemovePrompt,
+  knowledgeRetrievalMode,
+  onKnowledgeRetrievalModeChange,
 }: AgentSettingsPanelProps) {
   /**
    * Handle new prompt keydown for Enter key
@@ -128,6 +136,7 @@ export function AgentSettingsPanel({
             <TabsTrigger value="model">Model</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           </TabsList>
         </div>
 
@@ -250,6 +259,37 @@ export function AgentSettingsPanel({
             <p className="text-sm text-muted-foreground">
               Clickable prompts shown to users before they send their first message
             </p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="knowledge" className="mt-0 space-y-4">
+          <div className="space-y-4">
+            <div>
+              <Label>How should your agent access knowledge?</Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Choose how your agent finds and uses information from your knowledge base.
+              </p>
+            </div>
+            <RadioGroup
+              value={knowledgeRetrievalMode}
+              onValueChange={(value) => onKnowledgeRetrievalModeChange(value as KnowledgeSettings['mode'])}
+              disabled={isSaving}
+              className="space-y-3"
+            >
+              {KNOWLEDGE_RETRIEVAL_MODE_OPTIONS.map((option) => (
+                <div key={option.value} className="flex items-start space-x-3">
+                  <RadioGroupItem value={option.value} id={`knowledge-mode-${option.value}`} className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor={`knowledge-mode-${option.value}`} className="font-medium cursor-pointer">
+                      {option.label}
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {option.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
         </TabsContent>
       </Tabs>

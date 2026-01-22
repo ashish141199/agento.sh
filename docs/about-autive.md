@@ -1,4 +1,4 @@
-# Autive - MVP Specification
+# Autive - Platform Specification
 
 ## Overview
 
@@ -29,19 +29,19 @@ Building AI agents today is hard:
 
 ### Dashboard
 - View all created agents
-- Create new agent
-- Quick stats (optional for V2)
+- Create new agent (manual or AI-assisted)
+- Search and sort agents
 
 ---
 
-## Agent Creation (3 Tabs + Chat)
+## Agent Creation (4 Tabs + Chat)
 
 ### Layout
 ```
 ┌────────────────────────────────┬──────────────────────────┐
 │                                │                          │
-│  [General] [Instructions]      │      Chat Window         │
-│  [Tools]                       │                          │
+│  [Identity] [Instructions]     │      Chat Window         │
+│  [Knowledge] [Tools]           │                          │
 │                                │   Test your agent here   │
 │  ┌──────────────────────────┐  │   as you build it        │
 │  │                          │  │                          │
@@ -49,17 +49,16 @@ Building AI agents today is hard:
 │  │                          │  │                          │
 │  └──────────────────────────┘  │                          │
 │                                │                          │
-│  [Save Draft]  [Publish]   ⚙️  │   [Clear] [Save & Test]  │
+│  [← Previous]  [Next →]    ⚙️  │                          │
 │                                │                          │
 └────────────────────────────────┴──────────────────────────┘
 ```
 
-### Tab 1: General
+### Tab 1: Identity
 | Field | Type | Required |
 |-------|------|----------|
 | Name | Text input | Yes |
 | Description | Text area | No |
-| Model | Dropdown (Auto/GPT-4o/Claude/etc.) | Yes (default: Auto) |
 
 ### Tab 2: Instructions
 Instead of a raw system prompt, we ask 4 simple questions:
@@ -67,93 +66,96 @@ Instead of a raw system prompt, we ask 4 simple questions:
 | Question | Purpose |
 |----------|---------|
 | What does this agent do? | Main goal/job |
-| How should it speak? | Tone (Friendly / Professional / Direct) |
+| How should it speak? | Tone and communication style |
 | What should it NEVER do? | Hard constraints, off-limits topics |
 | Anything else it should know? | Additional context, rules, knowledge |
 
 **Behind the scenes:** These answers are compiled into an optimized system prompt. Users never see the word "prompt."
 
-### Tab 3: Tools
-#### Knowledge Base
-- Upload documents (PDF, DOCX, TXT, MD)
+### Tab 3: Knowledge
+- Upload documents (PDF, DOCX, TXT, MD, EPUB, Excel, HTML, ZIP)
 - Add website URLs (crawled and indexed)
+- Configure retrieval settings (enabled, topK, similarity threshold)
+- Retrieval modes: Tool-based or Auto-inject
 
-**Behind the scenes:** Chunking, embedding, vector storage, retrieval — all handled automatically.
+**Behind the scenes:** Chunking, embedding, vector storage, retrieval — all handled automatically using pgvector.
 
-#### Tools
-| Tool Type | Description | MVP? |
-|-----------|-------------|------|
-| Integration Actions (Platoona) | Pre-built integrations (2000+ actions) | ✅ Yes |
-| HTTP Endpoint | Custom GET/POST/PUT/DELETE requests | ✅ Yes |
-| Custom Code | Code executed in containerized environment | ❌ V2 |
-| Call N8N Workflow | Trigger external N8N workflows | ❌ V2 |
+### Tab 4: Tools
+| Tool Type | Description | Status |
+|-----------|-------------|--------|
+| API Connector | Custom GET/POST/PUT/PATCH/DELETE requests | ✅ Implemented |
+| MCP Connector | Model Context Protocol server integration | ✅ Implemented |
+| Integration Actions | Pre-built integrations | ❌ Future |
+| Custom Code | Code executed in containerized environment | ❌ Future |
+
+**Tool Properties:**
+- `name`: Internal identifier (snake_case)
+- `title`: Human-readable display name
+- `description`: Helps AI understand when to use the tool
+- `inputSchema`: Defines parameters the AI should provide
 
 ### Chat Window (Right Side)
 - Live testing while building
-- Changes apply on "Save & Test" (not auto-update)
-- Clear conversation button
 - Shows tool usage in responses
+- Conversation history with configurable limit
+- Welcome message support
+
+### Settings (⚙️ Gear Icon)
+
+#### Model Selection
+- Select from available OpenRouter models
+- Default model configuration
+
+#### Memory Settings
+| Setting | Options | Default |
+|---------|---------|---------|
+| Conversation History Limit | Number of messages | 10 |
+
+#### Chat Settings
+| Setting | Description |
+|---------|-------------|
+| Welcome Message | Initial greeting for users |
+| Suggested Prompts | Quick-start conversation starters |
 
 ---
 
-## Settings (⚙️ Gear Icon → Modal)
+## AI Builder Assistant
 
-### Context Management
-| Setting | Options | Default |
-|---------|---------|---------|
-| Rolling window size | Number of messages (5/10/20/50) | 10 |
-| Max tokens | Token limit before summarization | 4000 |
-| Summarization | On / Off | On |
-| Summarization prompt | Customizable (optional) | Smart default |
+A dedicated AI assistant (Claude Sonnet 4) that helps users create agents through natural language:
 
-**Logic:** Summarization triggers when EITHER max tokens OR message count is reached.
-
-### Performance
-| Setting | Options | Default |
-|---------|---------|---------|
-| Caching | On / Off | On |
-
-### Future Settings (V2+)
-- Guardrails (blocked topics, required phrases)
-- Rate limiting
-- Cost limits
-- Fallback behavior
+- Chat-based interface in sidebar
+- Can modify agent configuration
+- Can create and configure tools
+- Can manage knowledge sources
+- Persistent conversation history
 
 ---
 
 ## Publishing
 
-After clicking "Publish," agent becomes live with 3 access methods:
+After clicking "Publish," agent becomes live with access methods:
 
 ### 1. Chat Link
 ```
-https://app.autive.ai/chat/abc123
+https://autive.ai/chat/your-agent-slug
 ```
 - Shareable URL
-- Anyone can chat with the agent
-- No auth required for end users
+- Authenticated users can have persistent conversations
+- Conversation history saved per user
 
 ### 2. Embed Code
 ```html
-<script src="https://app.autive.ai/embed.js" data-agent="abc123"></script>
+<script src="https://autive.ai/embed.js" data-agent="your-agent-slug"></script>
 ```
 - Drop into any website
 - Renders as chat widget
-- Customizable position (bottom-right default)
+- Configurable position (fullscreen, bottom-right, bottom-left, top-right, top-left)
+- Theme options (light, dark)
 
-### 3. API Endpoint
+### 3. API Endpoint (Future)
 ```
-POST https://api.autive.ai/v1/agents/abc123/chat
-Authorization: Bearer sk-xxxxx
-
-{
-  "message": "Hello",
-  "session_id": "optional-for-continuity"
-}
+POST https://api.autive.ai/v1/agents/:id/chat
 ```
-- Full programmatic access
-- Streaming support
-- Session management for multi-turn conversations
 
 ---
 
@@ -161,71 +163,73 @@ Authorization: Bearer sk-xxxxx
 
 | Component | How it's handled |
 |-----------|------------------|
-| System prompt | Generated from 4 questions |
-| RAG/Embeddings | Auto-chunking, managed vector store |
-| Context window | Rolling window + summarization |
-| Memory | Short-term (session), long-term (V2) |
-| Caching | Response caching for repeated queries |
+| System prompt | Generated from 4 instruction questions |
+| RAG/Embeddings | Auto-chunking, pgvector storage |
+| Context window | Configurable conversation history limit |
+| Tool execution | Input interpolation, MCP protocol handling |
 | Error handling | Retries, fallbacks, graceful failures |
-| Tool execution | Auth, retries, timeout handling |
 
 ---
 
-## Pricing Model (MVP)
-
-### BYOK (Bring Your Own Key)
-- Users provide their own OpenAI/Anthropic/Groq API keys
-- Platform is free to use
-- Zero cost to us
-
-### Future (V2)
-- Optional managed credits (20-30% markup)
-- Free tier + Paid plans based on:
-  - Number of agents
-  - Features (embed, API, analytics)
-  - Support level
-
----
-
-## Tech Stack (Recommended)
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Hono or Fastify (TypeScript) |
-| AI | Vercel AI SDK + Provider SDKs |
-| Database | Postgres (Supabase or Neon) |
-| Vector Store | Supabase Vector or Pinecone |
-| Cache | Redis (Upstash) |
-| Auth | Clerk or Supabase Auth |
-| File Storage | Supabase Storage or S3 |
-| Deployment | Vercel or Railway |
+| Frontend | Next.js 16 (App Router, TypeScript) |
+| Backend | Fastify 5 (TypeScript, Bun runtime) |
+| AI | Vercel AI SDK + OpenRouter |
+| Database | PostgreSQL with Drizzle ORM |
+| Vector Store | pgvector extension |
+| File Storage | S3-compatible storage |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| State | Zustand + TanStack React Query |
 
 ---
 
-## MVP Scope
+## Database Schema
 
-### ✅ In Scope
-- Auth (Email OTP + Google)
-- Agent CRUD (Create, Read, Update, Delete)
-- 3-tab creation flow
-- Live chat testing
-- Knowledge base (document upload)
-- Tools: Platoona integrations + HTTP endpoints
-- Publishing: Chat link, Embed, API
-- Settings: Context window, summarization, caching
-- BYOK model selection
+### Core Tables
+- **users** - User accounts (email, Google OAuth)
+- **agents** - Agent configurations
+- **tools** - Reusable tool definitions (API/MCP)
+- **agent_tools** - Agent-tool assignments
+- **knowledge_sources** - Knowledge base sources
+- **knowledge_files** - Files within sources
+- **knowledge_chunks** - Vector-indexed content
+- **messages** - Chat history
+- **conversations** - Public chat conversations
+- **builder_messages** - AI builder conversation
+- **models** - Available AI models
+- **sessions** - User sessions
 
-### ❌ Out of Scope (V2+)
+---
+
+## Implementation Status
+
+### ✅ Implemented
+- Auth (Email OTP + Google OAuth)
+- Agent CRUD with soft deletes
+- 4-tab creation flow (Identity, Instructions, Knowledge, Tools)
+- Live chat testing with preview
+- Knowledge base (file upload, website crawling)
+- Tools: API connectors with full configuration
+- Tools: MCP connector with discovery and import
+- Tool input schema builder
+- Publishing: Chat link with conversations
+- Publishing: Embed widget configuration
+- AI Builder assistant
+- Conversation history management
+- Model selection via OpenRouter
+
+### ❌ Future Scope
+- Integration marketplace
 - Custom code tools
-- N8N workflow integration
-- MCP tools
-- Marketplace / Explore page
 - Analytics dashboard
 - Team collaboration
 - Versioning / Rollback
 - Multi-agent orchestration
-- Long-term memory across sessions
 - Usage billing / Credits system
+- API endpoint access
 
 ---
 
@@ -237,29 +241,3 @@ Authorization: Bearer sk-xxxxx
 | Agent creation completion rate | > 70% |
 | Users who publish an agent | > 50% |
 | Users who share/embed | > 20% |
-
----
-
-## Open Questions
-
-1. Should chat link require auth for end users? (Recommendation: No, for frictionless sharing)
-2. Rate limiting for free agents? (Recommendation: Yes, 100 req/day default)
-3. Branding on embedded chat? (Recommendation: "Powered by Autive" with paid option to remove)
-
----
-
-## Next Steps
-
-1. ~~Talk to 5-10 potential users~~ (Done - confirmed N8N pain points)
-2. Finalize UI mockups
-3. Set up project scaffolding
-4. Build auth flow
-5. Build agent creation flow
-6. Build chat interface
-7. Build publishing flow
-8. Ship MVP to early users
-9. Iterate based on feedback
-
----
-
-*Target: Ship testable MVP in 2-3 weeks*

@@ -211,6 +211,8 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
                 onNewPromptChange={editor.setNewPrompt}
                 onAddPrompt={editor.handleAddPrompt}
                 onRemovePrompt={editor.handleRemovePrompt}
+                knowledgeRetrievalMode={editor.knowledgeRetrievalMode}
+                onKnowledgeRetrievalModeChange={editor.setKnowledgeRetrievalMode}
               />
             ) : (
               <>

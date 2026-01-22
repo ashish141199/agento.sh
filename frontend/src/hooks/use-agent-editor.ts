@@ -9,12 +9,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { agentService, type Agent, type InstructionsConfig, type AgentSettings } from '@/services/agent.service'
+import { agentService, type Agent, type InstructionsConfig, type AgentSettings, type KnowledgeSettings } from '@/services/agent.service'
 import { useAuthStore } from '@/stores/auth.store'
 import {
   DEFAULT_INSTRUCTIONS_CONFIG,
   DEFAULT_CONVERSATION_HISTORY_LIMIT,
   DEFAULT_CONVERSATION_HISTORY_LIMIT_STRING,
+  DEFAULT_KNOWLEDGE_RETRIEVAL_MODE,
+  DEFAULT_KNOWLEDGE_SETTINGS,
   PRESET_HISTORY_LIMITS,
 } from '@/lib/defaults'
 
@@ -28,10 +30,11 @@ interface SavedState {
   customHistoryLimit: string
   welcomeMessage: string
   suggestedPrompts: string[]
+  knowledgeRetrievalMode: KnowledgeSettings['mode']
 }
 
 /** Settings tab values */
-type SettingsTabValue = 'model' | 'memory' | 'chat'
+type SettingsTabValue = 'model' | 'memory' | 'chat' | 'knowledge'
 
 /** Return type for useAgentEditor hook */
 export interface UseAgentEditorReturn {
@@ -63,6 +66,8 @@ export interface UseAgentEditorReturn {
   suggestedPrompts: string[]
   newPrompt: string
   setNewPrompt: (prompt: string) => void
+  knowledgeRetrievalMode: KnowledgeSettings['mode']
+  setKnowledgeRetrievalMode: (mode: KnowledgeSettings['mode']) => void
 
   // Handlers
   handleAddPrompt: () => void
@@ -100,6 +105,7 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
   const [welcomeMessage, setWelcomeMessage] = useState('')
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([])
   const [newPrompt, setNewPrompt] = useState('')
+  const [knowledgeRetrievalMode, setKnowledgeRetrievalMode] = useState<KnowledgeSettings['mode']>(DEFAULT_KNOWLEDGE_RETRIEVAL_MODE)
   const [savedState, setSavedState] = useState<SavedState | null>(null)
 
   /**
@@ -113,8 +119,12 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
     return {
       memory: { conversationHistoryLimit: limit },
       chat: { welcomeMessage, suggestedPrompts },
+      knowledge: {
+        ...DEFAULT_KNOWLEDGE_SETTINGS,
+        mode: knowledgeRetrievalMode,
+      },
     }
-  }, [conversationHistoryLimit, customHistoryLimit, welcomeMessage, suggestedPrompts])
+  }, [conversationHistoryLimit, customHistoryLimit, welcomeMessage, suggestedPrompts, knowledgeRetrievalMode])
 
   /**
    * Create current state snapshot for saved state comparison
@@ -128,7 +138,8 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
     customHistoryLimit,
     welcomeMessage,
     suggestedPrompts,
-  }), [name, description, modelId, instructionsConfig, conversationHistoryLimit, customHistoryLimit, welcomeMessage, suggestedPrompts])
+    knowledgeRetrievalMode,
+  }), [name, description, modelId, instructionsConfig, conversationHistoryLimit, customHistoryLimit, welcomeMessage, suggestedPrompts, knowledgeRetrievalMode])
 
   // Initialize form with agent data when editing
   useEffect(() => {
@@ -146,11 +157,13 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
       const customLimit = isCustomLimit ? limit.toString() : ''
       const welcome = agent.settings?.chat?.welcomeMessage || ''
       const prompts = agent.settings?.chat?.suggestedPrompts || []
+      const retrievalMode = agent.settings?.knowledge?.mode || DEFAULT_KNOWLEDGE_RETRIEVAL_MODE
 
       setConversationHistoryLimit(historyLimit)
       setCustomHistoryLimit(customLimit)
       setWelcomeMessage(welcome)
       setSuggestedPrompts(prompts)
+      setKnowledgeRetrievalMode(retrievalMode)
 
       setSavedState({
         name: agent.name,
@@ -161,6 +174,7 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
         customHistoryLimit: customLimit,
         welcomeMessage: welcome,
         suggestedPrompts: prompts,
+        knowledgeRetrievalMode: retrievalMode,
       })
     }
   }, [agent])
@@ -174,7 +188,8 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
     conversationHistoryLimit !== savedState.conversationHistoryLimit ||
     customHistoryLimit !== savedState.customHistoryLimit ||
     welcomeMessage !== savedState.welcomeMessage ||
-    JSON.stringify(suggestedPrompts) !== JSON.stringify(savedState.suggestedPrompts)
+    JSON.stringify(suggestedPrompts) !== JSON.stringify(savedState.suggestedPrompts) ||
+    knowledgeRetrievalMode !== savedState.knowledgeRetrievalMode
   )
 
   // Create agent mutation
@@ -298,6 +313,8 @@ export function useAgentEditor(agent?: Agent | null): UseAgentEditorReturn {
     suggestedPrompts,
     newPrompt,
     setNewPrompt,
+    knowledgeRetrievalMode,
+    setKnowledgeRetrievalMode,
     handleAddPrompt,
     handleRemovePrompt,
     handleSave,

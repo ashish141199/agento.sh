@@ -1,4 +1,4 @@
-import type { InstructionsConfig, AgentSettings } from '@/services/agent.service'
+import type { InstructionsConfig, AgentSettings, KnowledgeSettings } from '@/services/agent.service'
 
 /**
  * Default instructions configuration for agents
@@ -31,6 +31,21 @@ export const DEFAULT_WELCOME_MESSAGE = ''
 export const DEFAULT_SUGGESTED_PROMPTS: string[] = []
 
 /**
+ * Default knowledge retrieval mode
+ */
+export const DEFAULT_KNOWLEDGE_RETRIEVAL_MODE: KnowledgeSettings['mode'] = 'tool'
+
+/**
+ * Default knowledge settings
+ */
+export const DEFAULT_KNOWLEDGE_SETTINGS: KnowledgeSettings = {
+  enabled: true,
+  mode: DEFAULT_KNOWLEDGE_RETRIEVAL_MODE,
+  topK: 5,
+  similarityThreshold: 0.5,
+}
+
+/**
  * Default agent settings
  */
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
@@ -41,7 +56,25 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
     welcomeMessage: DEFAULT_WELCOME_MESSAGE,
     suggestedPrompts: DEFAULT_SUGGESTED_PROMPTS,
   },
+  knowledge: DEFAULT_KNOWLEDGE_SETTINGS,
 }
+
+/**
+ * Knowledge retrieval mode options for the settings dropdown
+ * Using non-technical friendly wording for semi-technical users
+ */
+export const KNOWLEDGE_RETRIEVAL_MODE_OPTIONS = [
+  {
+    value: 'tool' as const,
+    label: 'Search Tool',
+    description: 'Your agent will have a search tool to look up information from your knowledge base when needed.',
+  },
+  {
+    value: 'auto_inject' as const,
+    label: 'Automatic',
+    description: 'Relevant information from your knowledge base will be automatically provided with each message.',
+  },
+] as const
 
 /**
  * Conversation history options for the settings dropdown

@@ -4,6 +4,7 @@ import {
   DEFAULT_CONVERSATION_HISTORY_LIMIT,
   DEFAULT_WELCOME_MESSAGE,
   DEFAULT_SUGGESTED_PROMPTS,
+  DEFAULT_KNOWLEDGE_SETTINGS,
   MAX_CONVERSATION_HISTORY_LIMIT,
   MAX_INSTRUCTIONS_LENGTH,
   MAX_WELCOME_MESSAGE_LENGTH,
@@ -22,6 +23,16 @@ export const instructionsConfigSchema = z.object({
 })
 
 /**
+ * Knowledge settings schema
+ */
+export const knowledgeSettingsSchema = z.object({
+  enabled: z.boolean().default(DEFAULT_KNOWLEDGE_SETTINGS.enabled),
+  mode: z.enum(['tool', 'auto_inject']).default(DEFAULT_KNOWLEDGE_SETTINGS.mode),
+  topK: z.number().min(1).max(20).default(DEFAULT_KNOWLEDGE_SETTINGS.topK),
+  similarityThreshold: z.number().min(0).max(1).default(DEFAULT_KNOWLEDGE_SETTINGS.similarityThreshold),
+})
+
+/**
  * Agent settings schema
  */
 export const agentSettingsSchema = z.object({
@@ -32,6 +43,7 @@ export const agentSettingsSchema = z.object({
     welcomeMessage: z.string().max(MAX_WELCOME_MESSAGE_LENGTH, 'Welcome message too long').default(DEFAULT_WELCOME_MESSAGE),
     suggestedPrompts: z.array(z.string().max(MAX_SUGGESTED_PROMPT_LENGTH, 'Prompt too long')).max(MAX_SUGGESTED_PROMPTS_COUNT).default(DEFAULT_SUGGESTED_PROMPTS),
   }),
+  knowledge: knowledgeSettingsSchema.optional(),
 })
 
 /**
@@ -69,5 +81,6 @@ export const listAgentsSchema = z.object({
 export type CreateAgentInput = z.infer<typeof createAgentSchema>
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>
 export type InstructionsConfig = z.infer<typeof instructionsConfigSchema>
+export type KnowledgeSettings = z.infer<typeof knowledgeSettingsSchema>
 export type AgentSettings = z.infer<typeof agentSettingsSchema>
 export type ListAgentsInput = z.infer<typeof listAgentsSchema>
