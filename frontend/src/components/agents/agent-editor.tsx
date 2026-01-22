@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentGeneralForm } from './agent-general-form'
 import { AgentInstructionsForm } from './agent-instructions-form'
+import { KnowledgeSection } from './knowledge-section'
 import { AgentToolsForm } from './agent-tools-form'
 import { AgentSettingsPanel } from './agent-settings-panel'
 import { AgentEditorNavigation } from './agent-editor-navigation'
@@ -21,10 +22,10 @@ import { useModels } from '@/hooks/use-models'
 import { useAgentEditor } from '@/hooks/use-agent-editor'
 import { Loader2, Settings, GripVertical } from 'lucide-react'
 
-type TabValue = 'identity' | 'instructions' | 'tools'
+type TabValue = 'identity' | 'instructions' | 'knowledge' | 'tools'
 type MobileView = 'form' | 'chat'
 
-const TABS: TabValue[] = ['identity', 'instructions', 'tools']
+const TABS: TabValue[] = ['identity', 'instructions', 'knowledge', 'tools']
 
 /** Publish state for parent communication */
 export interface PublishState {
@@ -174,6 +175,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
             <TabsList className="w-fit">
               <TabsTrigger value="identity" onClick={() => editor.setShowSettings(false)}>Identity</TabsTrigger>
               <TabsTrigger value="instructions" disabled={!editor.hasCreated} onClick={() => editor.setShowSettings(false)}>Instructions</TabsTrigger>
+              <TabsTrigger value="knowledge" disabled={!editor.hasCreated} onClick={() => editor.setShowSettings(false)}>Knowledge</TabsTrigger>
               <TabsTrigger value="tools" disabled={!editor.hasCreated} onClick={() => editor.setShowSettings(false)}>Tools</TabsTrigger>
             </TabsList>
 
@@ -227,8 +229,13 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
                     instructionsConfig={editor.instructionsConfig}
                     onInstructionsChange={editor.setInstructionsConfig}
                     disabled={editor.isSaving}
-                    agentId={editor.agentId}
                   />
+                </TabsContent>
+
+                <TabsContent value="knowledge" className="mt-0 h-full">
+                  <div className="p-1">
+                    <KnowledgeSection agentId={editor.agentId} disabled={editor.isSaving} />
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="tools" className="mt-0 h-full">

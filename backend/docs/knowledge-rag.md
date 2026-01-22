@@ -53,34 +53,37 @@ Used for: PDF, DOCX, plain text
 - Never splits mid-word
 
 ### 2. Section-based Chunking
-Used for: Markdown, websites
+Used for: Markdown, HTML, websites, EPUB
 
 - Splits at markdown headers (`#`, `##`, `###`)
-- Keeps sections intact up to 1500 chars
+- Keeps sections intact up to maxChunkSize (2000 chars)
 - Large sections split by paragraphs, then sentences
 
 ### 3. Row-based Chunking
 Used for: CSV, Excel
 
 - Never splits mid-row
-- Groups complete rows up to chunk size
+- Groups complete rows up to chunkSize (1000 chars)
 - Preserves tabular data integrity
 
 ### 4. Code-aware Chunking
-Used for: TypeScript, JavaScript
+Used for: TypeScript, JavaScript, Python, Go, Java, Ruby, PHP, C, C++, Rust
 
-- Keeps JSDoc comments with declarations
+- Keeps JSDoc/docstrings with declarations
 - Preserves functions/classes/interfaces intact
-- Splits large blocks by line boundaries
+- Splits large blocks at logical boundaries (blank lines, closing braces)
+- Falls back to line boundaries for very large blocks
 
 ## Configuration
 
+All chunking parameters are centralized in `src/config/knowledge.defaults.ts`:
+
 ```typescript
-// Chunking
-chunkSize: 1000        // Target characters
-chunkOverlap: 200      // Overlap between chunks
-minChunkSize: 100      // Minimum chunk size
-maxChunkSize: 2000     // Maximum chunk size
+// Chunking (CHUNKING_DEFAULTS)
+chunkSize: 1000        // Target characters per chunk
+chunkOverlap: 200      // Overlap between chunks for context
+minChunkSize: 100      // Minimum chunk size (smaller chunks get merged)
+maxChunkSize: 2000     // Maximum chunk size (hard limit)
 
 // Embedding
 model: 'text-embedding-3-small'
@@ -161,7 +164,8 @@ LIMIT ?
 1. Validate size and type
 2. Upload to S3
 3. Parse document (extract text + metadata)
-4. Chunk using appropriate strategy
+   - For ZIP files: extract and process each supported file inside
+4. Chunk using appropriate strategy based on content type
 5. Generate embeddings (batched, 100 per request)
 6. Store chunks + embeddings in PostgreSQL
 7. Update source status

@@ -2,15 +2,12 @@
 
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { KnowledgeSection } from './knowledge-section'
 import type { InstructionsConfig } from '@/services/agent.service'
 
 interface AgentInstructionsFormProps {
   instructionsConfig: InstructionsConfig
   onInstructionsChange: (config: InstructionsConfig) => void
   disabled?: boolean
-  agentId?: string | null
 }
 
 /**
@@ -21,7 +18,6 @@ export function AgentInstructionsForm({
   instructionsConfig,
   onInstructionsChange,
   disabled = false,
-  agentId = null,
 }: AgentInstructionsFormProps) {
   const handleChange = (field: keyof InstructionsConfig, value: string) => {
     onInstructionsChange({
@@ -91,10 +87,6 @@ export function AgentInstructionsForm({
           Any other context or instructions for your agent
         </p>
       </div>
-
-      <Separator />
-
-      <KnowledgeSection agentId={agentId} disabled={disabled} />
     </div>
   )
 }
