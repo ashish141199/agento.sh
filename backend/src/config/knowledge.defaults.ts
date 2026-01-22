@@ -29,8 +29,21 @@ export const CHUNKING_DEFAULTS = {
   minChunkSize: 100,
   /** Maximum chunk size (hard limit) */
   maxChunkSize: 2000,
-  /** Delimiters for semantic chunking (in priority order) */
-  delimiters: ['\n\n', '\n', '. ', '? ', '! ', '; ', ', ', ' '],
+  /** Delimiters for semantic chunking (in priority order) - markdown-aware */
+  delimiters: [
+    '\n## ',      // H2 headers (best split point)
+    '\n### ',     // H3 headers
+    '\n#### ',    // H4 headers
+    '\n\n',       // Paragraph breaks
+    '\n- ',       // List items
+    '\n* ',       // List items (asterisk)
+    '\n',         // Line breaks
+    '. ',         // Sentences
+    '? ',         // Questions
+    '! ',         // Exclamations
+    '; ',         // Semicolons
+    ', ',         // Commas (last resort)
+  ],
 } as const
 
 /**

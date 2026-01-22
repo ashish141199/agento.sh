@@ -7,7 +7,6 @@ import { s3Service } from './s3.service'
 import { embeddingService } from './embedding.service'
 import {
   parseAndChunk,
-  crawlAndChunk,
   isSupported,
   type TextChunk,
 } from './document-processing'
@@ -329,6 +328,7 @@ async function processFileUpload(
 
 /**
  * Create a website knowledge source
+ * Uses markdown-based parallel crawling for better content quality
  * @param agentId - Agent ID
  * @param userId - User ID
  * @param url - Website URL to crawl
@@ -365,53 +365,93 @@ export async function createWebsiteKnowledgeSource(
   try {
     console.log(`[KnowledgeService] Creating website knowledge source for ${url}`)
 
-    if (onProgress) onProgress('Crawling website...', 0)
+    // Phase 1: Discover all pages
+    if (onProgress) onProgress('Discovering pages...', 0)
 
-    // Crawl and chunk the website
-    const { chunks, result } = await crawlAndChunk(url, (crawled, discovered) => {
+    const discoveryResult = await websiteCrawler.discoverPages(url, (discovered, queue) => {
       if (onProgress) {
-        const progress = Math.round((crawled / Math.max(discovered, 1)) * 50)
-        onProgress(`Crawled ${crawled}/${discovered} pages`, progress)
+        const progress = Math.min(Math.round((discovered / Math.max(discovered + queue, 1)) * 20), 20)
+        onProgress(`Discovered ${discovered} pages...`, progress)
+      }
+    })
+
+    console.log(`[KnowledgeService] Discovery result for ${url}:`, {
+      pagesCount: discoveryResult.pages.length,
+      failed: discoveryResult.failed.length,
+      durationMs: discoveryResult.stats.durationMs,
+    })
+
+    if (discoveryResult.pages.length === 0) {
+      throw new Error('No pages could be discovered from website')
+    }
+
+    // Phase 2: Crawl all discovered pages in parallel
+    if (onProgress) onProgress('Crawling pages...', 20)
+
+    const pageUrls = discoveryResult.pages.map(p => p.url)
+    const crawlResult = await websiteCrawler.crawlPages(pageUrls, (crawled, total) => {
+      if (onProgress) {
+        const progress = 20 + Math.round((crawled / total) * 30)
+        onProgress(`Crawled ${crawled}/${total} pages`, progress)
       }
     })
 
     console.log(`[KnowledgeService] Crawl result for ${url}:`, {
-      pagesCount: result.pages.length,
-      chunksCount: chunks.length,
-      failed: result.failed,
-      stats: result.stats,
+      pagesCount: crawlResult.pages.length,
+      failed: crawlResult.failed.length,
+      stats: crawlResult.stats,
     })
 
     // Update metadata with crawl stats
     await updateKnowledgeSource(source.id, {
       metadata: {
         url,
-        pagesDiscovered: result.stats.totalDiscovered,
-        pagesCrawled: result.stats.totalCrawled,
+        pagesDiscovered: discoveryResult.pages.length,
+        pagesCrawled: crawlResult.pages.length,
         lastCrawledAt: new Date().toISOString(),
       } as WebsiteSourceMetadata,
     })
 
-    if (chunks.length === 0) {
+    if (crawlResult.pages.length === 0) {
+      throw new Error('No content could be extracted from any page')
+    }
+
+    // Phase 3: Chunk all pages (using markdown content)
+    if (onProgress) onProgress('Processing content...', 50)
+
+    const allChunks: TextChunk[] = []
+    for (const page of crawlResult.pages) {
+      if (page.content && page.content.length > 0) {
+        const chunks = textChunker.chunk(page.content, {
+          source: page.url,
+          section: page.title,
+        })
+        allChunks.push(...chunks)
+      }
+    }
+
+    console.log(`[KnowledgeService] Created ${allChunks.length} chunks from ${crawlResult.pages.length} pages`)
+
+    if (allChunks.length === 0) {
       throw new Error('No content could be extracted from website')
     }
 
-    if (onProgress) onProgress('Generating embeddings...', 50)
+    // Phase 4: Generate embeddings
+    if (onProgress) onProgress('Generating embeddings...', 55)
 
-    // Generate embeddings
-    const texts = chunks.map(c => c.content)
+    const texts = allChunks.map(c => c.content)
     const embeddingResult = await embeddingService.embedTexts(texts, (completed, total) => {
       if (onProgress) {
-        const progress = 50 + Math.round((completed / total) * 40)
+        const progress = 55 + Math.round((completed / total) * 35)
         onProgress(`Embedding ${completed}/${total} chunks`, progress)
       }
     })
 
+    // Phase 5: Store chunks
     if (onProgress) onProgress('Storing knowledge...', 90)
 
-    // Store chunks
     const chunksToStore = embeddingResult.results.map((result, index) => {
-      const chunk = chunks[index]!
+      const chunk = allChunks[index]!
       return {
         sourceId: source.id,
         chunkIndex: index,
@@ -428,11 +468,13 @@ export async function createWebsiteKnowledgeSource(
     const updatedSource = await updateKnowledgeSource(source.id, {
       status: KNOWLEDGE_SOURCE_STATUS.READY,
       chunkCount: storedCount,
-      totalCharacters: chunks.reduce((sum, c) => sum + c.length, 0),
+      totalCharacters: allChunks.reduce((sum, c) => sum + c.length, 0),
       lastTrainedAt: new Date(),
     })
 
     if (onProgress) onProgress('Complete', 100)
+
+    console.log(`[KnowledgeService] Website knowledge source created for ${url}: ${storedCount} chunks`)
 
     return updatedSource
   } catch (error) {
@@ -448,6 +490,7 @@ export async function createWebsiteKnowledgeSource(
 
 /**
  * Re-process an existing website source (for retraining)
+ * Uses the new markdown-based parallel crawling approach
  * @param source - Existing knowledge source
  * @param url - Website URL to crawl
  * @returns Updated source
@@ -459,37 +502,69 @@ async function reprocessWebsiteSource(
   console.log(`[KnowledgeService] Reprocessing website source ${source.id}: ${url}`)
 
   try {
-    // Crawl and chunk the website
-    const { chunks, result } = await crawlAndChunk(url)
+    // Phase 1: Discover all pages
+    console.log(`[KnowledgeService] Discovering pages for ${url}...`)
+    const discoveryResult = await websiteCrawler.discoverPages(url)
+
+    if (discoveryResult.pages.length === 0) {
+      throw new Error('No pages could be discovered from website')
+    }
+
+    console.log(`[KnowledgeService] Discovered ${discoveryResult.pages.length} pages`)
+
+    // Phase 2: Crawl all discovered pages in parallel
+    const pageUrls = discoveryResult.pages.map(p => p.url)
+    console.log(`[KnowledgeService] Crawling ${pageUrls.length} pages in parallel...`)
+
+    const crawlResult = await websiteCrawler.crawlPages(pageUrls)
 
     console.log(`[KnowledgeService] Crawl result for ${url}:`, {
-      pagesCount: result.pages.length,
-      chunksCount: chunks.length,
-      failed: result.failed.length,
-      stats: result.stats,
+      pagesCount: crawlResult.pages.length,
+      failed: crawlResult.failed.length,
+      stats: crawlResult.stats,
     })
 
     // Update metadata with crawl stats
     await updateKnowledgeSource(source.id, {
       metadata: {
         url,
-        pagesDiscovered: result.stats.totalDiscovered,
-        pagesCrawled: result.stats.totalCrawled,
+        pagesDiscovered: discoveryResult.pages.length,
+        pagesCrawled: crawlResult.pages.length,
         lastCrawledAt: new Date().toISOString(),
       } as WebsiteSourceMetadata,
     })
 
-    if (chunks.length === 0) {
+    if (crawlResult.pages.length === 0) {
+      throw new Error('No content could be extracted from any page')
+    }
+
+    // Phase 3: Chunk all pages (now using markdown content)
+    console.log(`[KnowledgeService] Chunking ${crawlResult.pages.length} pages...`)
+    const allChunks: TextChunk[] = []
+    for (const page of crawlResult.pages) {
+      if (page.content && page.content.length > 0) {
+        const chunks = textChunker.chunk(page.content, {
+          source: page.url,
+          section: page.title,
+        })
+        allChunks.push(...chunks)
+      }
+    }
+
+    console.log(`[KnowledgeService] Created ${allChunks.length} chunks`)
+
+    if (allChunks.length === 0) {
       throw new Error('No content could be extracted from website')
     }
 
-    // Generate embeddings
-    const texts = chunks.map(c => c.content)
+    // Phase 4: Generate embeddings
+    console.log(`[KnowledgeService] Generating embeddings for ${allChunks.length} chunks...`)
+    const texts = allChunks.map(c => c.content)
     const embeddingResult = await embeddingService.embedTexts(texts)
 
-    // Store chunks for the EXISTING source
+    // Phase 5: Store chunks for the EXISTING source
     const chunksToStore = embeddingResult.results.map((result, index) => {
-      const chunk = chunks[index]!
+      const chunk = allChunks[index]!
       return {
         sourceId: source.id,
         chunkIndex: index,
@@ -506,7 +581,7 @@ async function reprocessWebsiteSource(
     return updateKnowledgeSource(source.id, {
       status: KNOWLEDGE_SOURCE_STATUS.READY,
       chunkCount: storedCount,
-      totalCharacters: chunks.reduce((sum, c) => sum + c.length, 0),
+      totalCharacters: allChunks.reduce((sum, c) => sum + c.length, 0),
       lastTrainedAt: new Date(),
       errorMessage: null,
     })

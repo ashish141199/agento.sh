@@ -1,13 +1,13 @@
 /**
  * Website crawler service
- * Crawls all pages of a website and extracts text content
+ * Crawls all pages of a website and extracts content as Markdown
  * Note: JS-rendered pages (SPAs) are not fully supported - content may be incomplete
  */
 
 import * as cheerio from 'cheerio'
-import type { AnyNode } from 'domhandler'
 import type { CrawledPage, CrawlResult } from './types'
 import { WEBSITE_CRAWL_DEFAULTS } from '../../config/knowledge.defaults'
+import { htmlToMarkdownClean } from './html-to-markdown'
 
 /**
  * Discovery result for a website
@@ -49,9 +49,15 @@ export class WebsiteCrawler {
 
     console.log(`[WebsiteCrawler] Starting discovery of ${baseUrl}`)
 
-    while (queue.length > 0 && discovered.size <= this.config.maxPages) {
+    console.log(`[WebsiteCrawler] Discovery loop starting. maxPages: ${this.config.maxPages}`)
+
+    while (queue.length > 0 && pages.length < this.config.maxPages) {
       // Process multiple URLs in parallel for faster discovery
-      const batch = queue.splice(0, Math.min(5, queue.length))
+      // Limit batch size to not exceed maxPages
+      const remainingSlots = this.config.maxPages - pages.length
+      const batch = queue.splice(0, Math.min(5, queue.length, remainingSlots))
+
+      console.log(`[WebsiteCrawler] Processing batch of ${batch.length} URLs. pages: ${pages.length}, queue: ${queue.length}`)
 
       const results = await Promise.allSettled(
         batch.map(url => this.discoverPage(url, baseUrl))
@@ -65,19 +71,22 @@ export class WebsiteCrawler {
           const { title, links } = result.value
           pages.push({ url, title })
 
-          // Add new links to queue
+          // Add new links to queue (only if we haven't reached maxPages yet)
+          let newLinksAdded = 0
           for (const link of links) {
             const normalizedLink = this.normalizeUrl(link)
             if (!discovered.has(normalizedLink) && this.isSameDomain(link, baseUrl)) {
               discovered.add(normalizedLink)
-              if (discovered.size <= this.config.maxPages) {
-                queue.push(link)
-              }
+              newLinksAdded++
+              // Always add to queue - we'll stop processing when pages.length reaches maxPages
+              queue.push(link)
             }
           }
+          console.log(`[WebsiteCrawler] Page ${url}: ${links.length} links found, ${newLinksAdded} new added to queue`)
         } else if (result.status === 'rejected') {
           const errorMessage = result.reason instanceof Error ? result.reason.message : 'Unknown error'
           failed.push({ url, error: errorMessage })
+          console.log(`[WebsiteCrawler] Page ${url} failed: ${errorMessage}`)
         }
       }
 
@@ -86,11 +95,13 @@ export class WebsiteCrawler {
         onProgress(pages.length, queue.length)
       }
 
-      console.log(`[WebsiteCrawler] Discovered ${pages.length} pages, ${queue.length} in queue`)
+      console.log(`[WebsiteCrawler] Discovered ${pages.length} pages, ${queue.length} in queue, ${discovered.size} URLs seen`)
 
       // Small delay to be respectful to servers
       await this.delay(100)
     }
+
+    console.log(`[WebsiteCrawler] Discovery loop ended. Final: pages=${pages.length}, queue=${queue.length}, discovered=${discovered.size}`)
 
     const durationMs = Date.now() - startTime
 
@@ -134,11 +145,13 @@ export class WebsiteCrawler {
       clearTimeout(timeoutId)
 
       if (!response.ok) {
+        console.log(`[WebsiteCrawler] discoverPage failed for ${url}: ${response.status}`)
         return null
       }
 
       const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+        console.log(`[WebsiteCrawler] discoverPage skipping non-HTML ${url}: ${contentType}`)
         return null
       }
 
@@ -150,6 +163,8 @@ export class WebsiteCrawler {
 
       // Extract links
       const links = this.extractLinks($, url, baseUrl)
+
+      console.log(`[WebsiteCrawler] discoverPage ${url}: found ${links.length} links, title: "${title.substring(0, 50)}"`)
 
       return { title, links }
     } catch (error) {
@@ -361,27 +376,33 @@ export class WebsiteCrawler {
       // Extract title
       const title = $('title').text().trim() || url
 
-      // Extract main content (remove script, style, nav, footer, etc.)
-      $('script, style, nav, footer, header, aside, .sidebar, .navigation, .menu, .ad, .advertisement').remove()
-
-      // Try to find main content area
-      let content = ''
+      // Try to find main content area for better markdown conversion
+      let contentHtml = ''
       const mainSelectors = ['main', 'article', '.content', '.main-content', '#content', '#main']
 
       for (const selector of mainSelectors) {
         const main = $(selector)
         if (main.length > 0) {
-          content = this.extractText($, main)
+          contentHtml = main.html() || ''
           break
         }
       }
 
       // Fallback to body if no main content found
-      if (!content) {
-        content = this.extractText($, $('body'))
+      if (!contentHtml) {
+        // Remove non-content elements before extracting body
+        $('script, style, nav, footer, header, aside, .sidebar, .navigation, .menu, .ad, .advertisement, .cookie-banner, .popup').remove()
+        contentHtml = $('body').html() || ''
       }
 
-      console.log(`[WebsiteCrawler] Extracted content for ${url}: ${content.length} chars, title: "${title}"`)
+      // Convert HTML to Markdown
+      const content = htmlToMarkdownClean(contentHtml, {
+        removeNavigation: true,
+        removeFooter: true,
+        minContentLength: 50,
+      })
+
+      console.log(`[WebsiteCrawler] Extracted markdown for ${url}: ${content.length} chars, title: "${title}"`)
 
       // Extract links
       const links = this.extractLinks($, url, baseUrl)
@@ -402,32 +423,6 @@ export class WebsiteCrawler {
   }
 
   /**
-   * Extract clean text from a Cheerio element
-   * @param $ - Cheerio instance
-   * @param element - Element to extract from
-   * @returns Cleaned text content
-   */
-  private extractText($: cheerio.CheerioAPI, element: cheerio.Cheerio<AnyNode>): string {
-    // Get text content
-    let text = element.text()
-
-    // Clean up whitespace
-    text = text
-      // Replace multiple spaces/tabs with single space
-      .replace(/[ \t]+/g, ' ')
-      // Replace multiple newlines with double newline
-      .replace(/\n{3,}/g, '\n\n')
-      // Trim lines
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n')
-      .trim()
-
-    return text
-  }
-
-  /**
    * Extract valid links from a page
    * @param $ - Cheerio instance
    * @param currentUrl - Current page URL
@@ -441,10 +436,14 @@ export class WebsiteCrawler {
   ): string[] {
     const links: string[] = []
     const seen = new Set<string>()
+    let totalAnchors = 0
+    let skippedExternal = 0
 
     $('a[href]').each((_, element) => {
       const href = $(element).attr('href')
       if (!href) return
+
+      totalAnchors++
 
       try {
         // Skip anchors, javascript, mailto, tel links
@@ -470,11 +469,15 @@ export class WebsiteCrawler {
         if (!seen.has(normalizedUrl) && this.isSameDomain(cleanUrl, baseUrl)) {
           seen.add(normalizedUrl)
           links.push(cleanUrl)
+        } else if (!this.isSameDomain(cleanUrl, baseUrl)) {
+          skippedExternal++
         }
       } catch {
         // Invalid URL, skip
       }
     })
+
+    console.log(`[WebsiteCrawler] extractLinks from ${currentUrl}: ${totalAnchors} anchors, ${links.length} same-domain, ${skippedExternal} external`)
 
     return links
   }

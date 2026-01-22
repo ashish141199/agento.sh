@@ -272,8 +272,23 @@ export class TextChunker {
         chunks.push(chunk)
       }
 
-      // Calculate overlap start point
-      const overlapStart = Math.max(0, chunkEnd - this.config.chunkOverlap)
+      // Calculate overlap start point with word boundary respect
+      let overlapStart = Math.max(0, chunkEnd - this.config.chunkOverlap)
+
+      // Adjust overlapStart to the nearest word boundary (find previous space)
+      // This ensures chunks don't start in the middle of a word
+      if (overlapStart > 0 && remainingText[overlapStart] !== ' ' && remainingText[overlapStart] !== '\n') {
+        // Search backwards for a space or newline
+        let adjustedStart = overlapStart
+        while (adjustedStart > 0 && remainingText[adjustedStart] !== ' ' && remainingText[adjustedStart] !== '\n') {
+          adjustedStart--
+        }
+        // If we found a space/newline, start after it
+        if (adjustedStart > 0) {
+          overlapStart = adjustedStart + 1
+        }
+      }
+
       remainingText = remainingText.slice(overlapStart)
 
       // Prevent infinite loop
@@ -285,6 +300,11 @@ export class TextChunker {
 
     return chunks.filter(c => c.length > 0)
   }
+
+  /**
+   * Markdown header patterns that should start new chunks
+   */
+  private readonly headerPatterns = ['\n## ', '\n### ', '\n#### ', '\n##### ', '\n###### ']
 
   /**
    * Find the best semantic split point near the target position
@@ -301,13 +321,25 @@ export class TextChunker {
 
     // Try each delimiter in priority order
     for (const delimiter of this.config.delimiters) {
+      // Check if this is a markdown header delimiter
+      const isHeaderDelimiter = this.headerPatterns.includes(delimiter)
+
       // Search backwards from target for delimiter
       let searchEnd = Math.min(targetPosition + 50, windowEnd)
 
       for (let pos = searchEnd; pos >= windowStart; pos--) {
         if (text.slice(pos, pos + delimiter.length) === delimiter) {
-          // Found a delimiter, use position after it
-          const splitPos = pos + delimiter.length
+          let splitPos: number
+
+          if (isHeaderDelimiter) {
+            // For headers, split BEFORE the newline so header stays with next chunk
+            // The delimiter is '\n## ', so we split at pos (before the \n)
+            splitPos = pos
+          } else {
+            // For other delimiters, split after
+            splitPos = pos + delimiter.length
+          }
+
           if (splitPos >= this.config.minChunkSize && splitPos <= this.config.maxChunkSize) {
             return splitPos
           }
