@@ -20,6 +20,7 @@ import { MessagePartsRenderer } from './message-parts-renderer'
 import { useAskUser } from '@/hooks/use-ask-user'
 import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
 import { useResizablePanel } from '@/hooks/use-resizable-panel'
+import { API_BASE_URL } from '@/lib/api'
 import type { AskUserInput, AskUserResponse } from '@/types/ask-user.types'
 import { SUGGESTIONS } from '@/components/prompt-box'
 
@@ -81,7 +82,7 @@ function BuilderChatInner({
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
-      api: `http://localhost:8000/builder/chat`,
+      api: `${API_BASE_URL}/builder/chat`,
       fetch: fetchWithAuth,
       body: { agentId: currentAgentId },
     })

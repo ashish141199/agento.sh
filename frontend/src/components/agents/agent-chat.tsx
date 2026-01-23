@@ -19,6 +19,7 @@ import { ToolCallCard, type ToolCallPart } from './tool-call-card'
 import { useFetchWithAuth } from '@/hooks/use-fetch-with-auth'
 import { toolService } from '@/services/tool.service'
 import { useAuthStore } from '@/stores/auth.store'
+import { API_BASE_URL } from '@/lib/api'
 
 /** Props for AgentChat component */
 interface AgentChatProps {
@@ -79,7 +80,7 @@ function AgentChatInner({ agentId, name, description, welcomeMessage, suggestedP
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
-      api: `http://localhost:8000/agents/${agentId}/chat`,
+      api: `${API_BASE_URL}/agents/${agentId}/chat`,
       fetch: fetchWithAuth,
     })
   }, [agentId, fetchWithAuth])
