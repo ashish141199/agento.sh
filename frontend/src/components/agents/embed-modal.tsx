@@ -198,7 +198,34 @@ export function EmbedModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="allowed-domains">Allowed Domains</Label>
+            <Label>Embed Code</Label>
+            <div className="relative">
+              <pre className="bg-neutral-100 dark:bg-neutral-800 rounded-md p-3 text-xs overflow-x-auto">
+                <code>{embedCode}</code>
+              </pre>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 right-2"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add this script to your website to embed the chat interface.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="allowed-domains">Allowed Domains</Label>
+              <span className="text-xs text-amber-600 dark:text-amber-500 font-medium">Recommended</span>
+            </div>
             <p className="text-xs text-muted-foreground">
               Restrict which websites can embed this agent. Leave empty to allow all domains.
             </p>
@@ -238,31 +265,6 @@ export function EmbedModal({
               </div>
             )}
           </div>
-
-          <div className="space-y-2">
-            <Label>Embed Code</Label>
-            <div className="relative">
-              <pre className="bg-neutral-100 dark:bg-neutral-800 rounded-md p-3 text-xs overflow-x-auto">
-                <code>{embedCode}</code>
-              </pre>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-2 right-2"
-                onClick={handleCopy}
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Add this script to your website to embed the chat interface.
-          </p>
         </div>
 
         <DialogFooter>

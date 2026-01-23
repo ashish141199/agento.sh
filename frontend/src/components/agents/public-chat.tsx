@@ -414,6 +414,19 @@ export function PublicChat({ agentId, agentSlug, agentName, agentDescription, is
             </Button>
           </div>
         </form>
+
+        {/* Powered by branding */}
+        <div className="flex items-center justify-center gap-1 mt-3">
+          <span className="text-[10px] text-muted-foreground">Powered by</span>
+          <a
+            href="https://autive.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-foreground hover:text-primary transition-colors"
+          >
+            Autive
+          </a>
+        </div>
       </div>
 
       <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />

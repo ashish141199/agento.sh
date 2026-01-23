@@ -48,9 +48,16 @@ export function EmbedChat({ agentId, agentName, agentDescription }: EmbedChatPro
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Focus input on mount
+  // Focus input on mount and when window gains focus (for widget mode)
   useEffect(() => {
     inputRef.current?.focus()
+
+    const handleFocus = () => {
+      inputRef.current?.focus()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -165,6 +172,19 @@ export function EmbedChat({ agentId, agentName, agentDescription }: EmbedChatPro
             )}
           </Button>
         </form>
+
+        {/* Powered by branding */}
+        <div className="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-border/50">
+          <span className="text-[10px] text-muted-foreground">Powered by</span>
+          <a
+            href="https://autive.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-foreground hover:text-primary transition-colors"
+          >
+            Autive
+          </a>
+        </div>
       </div>
     </div>
   )

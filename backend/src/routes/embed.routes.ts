@@ -349,9 +349,9 @@ export async function embedRoutes(fastify: FastifyInstance): Promise<void> {
     const requestDomain = extractDomain(request.headers.origin || request.headers.referer)
 
     if (!isDomainAllowed(requestDomain, allowedDomains)) {
-      return reply.status(404).send({
+      return reply.status(403).send({
         success: false,
-        message: 'Agent not found',
+        message: 'Embedding not allowed on this domain',
       })
     }
 
