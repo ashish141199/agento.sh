@@ -39,8 +39,8 @@
   var scriptSrc = currentScript.src;
   var baseUrl = scriptSrc.replace('/embed.js', '');
 
-  // Chat URL - works with both Agent ID and Slug
-  var chatUrl = baseUrl + '/chat/' + agentIdentifier + '?embed=true&theme=' + theme;
+  // Embed URL - works with both Agent ID and Slug
+  var chatUrl = baseUrl + '/embed/' + agentIdentifier + '?theme=' + theme;
 
   // Theme colors
   var colors = {
@@ -65,7 +65,7 @@
   if (!document.getElementById(styleId)) {
     var style = document.createElement('style');
     style.id = styleId;
-    style.textContent = '\n      .autive-embed-container {\n        width: 100%;\n        height: 100%;\n        position: relative;\n      }\n      .autive-embed-iframe {\n        width: 100%;\n        height: 100%;\n        border: none;\n        border-radius: 8px;\n      }\n      .autive-widget-button {\n        position: fixed;\n        bottom: 20px;\n        right: 20px;\n        width: 56px;\n        height: 56px;\n        border-radius: 28px;\n        border: none;\n        cursor: pointer;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        box-shadow: 0 4px 12px ' + themeColors.shadow + ';\n        transition: transform 0.2s ease, box-shadow 0.2s ease;\n        z-index: 999998;\n        background-color: ' + themeColors.primary + ';\n      }\n      .autive-widget-button:hover {\n        transform: scale(1.05);\n        box-shadow: 0 6px 16px ' + themeColors.shadow + ';\n      }\n      .autive-widget-button svg {\n        width: 24px;\n        height: 24px;\n        fill: ' + themeColors.background + ';\n      }\n      .autive-widget-popup {\n        position: fixed;\n        bottom: 90px;\n        right: 20px;\n        width: 400px;\n        height: 600px;\n        max-width: calc(100vw - 40px);\n        max-height: calc(100vh - 120px);\n        border-radius: 16px;\n        overflow: hidden;\n        box-shadow: 0 8px 32px ' + themeColors.shadow + ';\n        z-index: 999999;\n        display: none;\n        flex-direction: column;\n        background-color: ' + themeColors.background + ';\n        border: 1px solid ' + themeColors.border + ';\n      }\n      .autive-widget-popup.autive-widget-open {\n        display: flex;\n      }\n      .autive-widget-header {\n        display: flex;\n        align-items: center;\n        justify-content: flex-end;\n        padding: 12px 16px;\n        border-bottom: 1px solid ' + themeColors.border + ';\n        background-color: ' + themeColors.background + ';\n      }\n      .autive-widget-close {\n        width: 32px;\n        height: 32px;\n        border-radius: 8px;\n        border: none;\n        cursor: pointer;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        transition: background-color 0.2s ease;\n        background-color: transparent;\n      }\n      .autive-widget-close:hover {\n        background-color: ' + themeColors.border + ';\n      }\n      .autive-widget-close svg {\n        width: 20px;\n        height: 20px;\n        stroke: ' + themeColors.primary + ';\n      }\n      .autive-widget-content {\n        flex: 1;\n        overflow: hidden;\n      }\n      .autive-widget-content iframe {\n        width: 100%;\n        height: 100%;\n        border: none;\n      }\n      @media (max-width: 480px) {\n        .autive-widget-popup {\n          bottom: 0;\n          right: 0;\n          width: 100vw;\n          height: 100vh;\n          max-width: 100vw;\n          max-height: 100vh;\n          border-radius: 0;\n        }\n        .autive-widget-button {\n          bottom: 16px;\n          right: 16px;\n        }\n      }\n    ';
+    style.textContent = '\n      .autive-embed-container {\n        width: 100%;\n        height: 100%;\n        position: relative;\n      }\n      .autive-embed-iframe {\n        width: 100%;\n        height: 100%;\n        border: none;\n        border-radius: 8px;\n      }\n      .autive-widget-button {\n        position: fixed;\n        bottom: 20px;\n        right: 20px;\n        width: 56px;\n        height: 56px;\n        border-radius: 28px;\n        border: none;\n        cursor: pointer;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        box-shadow: 0 4px 12px ' + themeColors.shadow + ';\n        transition: transform 0.2s ease, box-shadow 0.2s ease;\n        z-index: 999998;\n        background-color: ' + themeColors.primary + ';\n      }\n      .autive-widget-button:hover {\n        transform: scale(1.05);\n        box-shadow: 0 6px 16px ' + themeColors.shadow + ';\n      }\n      .autive-widget-button svg {\n        width: 24px;\n        height: 24px;\n        fill: ' + themeColors.background + ';\n      }\n      .autive-widget-popup {\n        position: fixed;\n        bottom: 90px;\n        right: 20px;\n        width: 400px;\n        height: 600px;\n        max-width: calc(100vw - 40px);\n        max-height: calc(100vh - 120px);\n        border-radius: 16px;\n        overflow: hidden;\n        box-shadow: 0 8px 32px ' + themeColors.shadow + ';\n        z-index: 999999;\n        display: none;\n        background-color: ' + themeColors.background + ';\n        border: 1px solid ' + themeColors.border + ';\n      }\n      .autive-widget-popup.autive-widget-open {\n        display: block;\n      }\n      .autive-widget-close {\n        position: absolute;\n        top: 8px;\n        right: 8px;\n        width: 28px;\n        height: 28px;\n        border-radius: 6px;\n        border: none;\n        cursor: pointer;\n        display: flex;\n        align-items: center;\n        justify-content: center;\n        transition: background-color 0.2s ease;\n        background-color: ' + themeColors.background + ';\n        z-index: 1;\n      }\n      .autive-widget-close:hover {\n        background-color: ' + themeColors.border + ';\n      }\n      .autive-widget-close svg {\n        width: 16px;\n        height: 16px;\n        stroke: ' + themeColors.primary + ';\n      }\n      .autive-widget-content {\n        width: 100%;\n        height: 100%;\n      }\n      .autive-widget-content iframe {\n        width: 100%;\n        height: 100%;\n        border: none;\n      }\n      @media (max-width: 480px) {\n        .autive-widget-popup {\n          bottom: 0;\n          right: 0;\n          width: 100vw;\n          height: 100vh;\n          max-width: 100vw;\n          max-height: 100vh;\n          border-radius: 0;\n        }\n        .autive-widget-button {\n          bottom: 16px;\n          right: 16px;\n        }\n      }\n    ';
     document.head.appendChild(style);
   }
 
@@ -124,16 +124,11 @@
     var popup = document.createElement('div');
     popup.className = 'autive-widget-popup';
 
-    // Create header with close button
-    var header = document.createElement('div');
-    header.className = 'autive-widget-header';
-
+    // Create close button (positioned absolutely over iframe)
     var closeButton = document.createElement('button');
     closeButton.className = 'autive-widget-close';
     closeButton.innerHTML = closeIconSvg;
     closeButton.setAttribute('aria-label', 'Close chat');
-
-    header.appendChild(closeButton);
 
     // Create content area with iframe
     var content = document.createElement('div');
@@ -145,7 +140,7 @@
 
     content.appendChild(iframe);
 
-    popup.appendChild(header);
+    popup.appendChild(closeButton);
     popup.appendChild(content);
 
     // Add to document

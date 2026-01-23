@@ -153,35 +153,6 @@
       padding: 24px;
       font-size: 14px;
     }
-    .widget-hint {
-      position: fixed;
-      bottom: 90px;
-      right: 20px;
-      background: #18181b;
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      animation: bounce 2s infinite;
-      z-index: 999997;
-      display: none;
-    }
-    .widget-hint.visible {
-      display: block;
-    }
-    .widget-hint::after {
-      content: '';
-      position: absolute;
-      bottom: -8px;
-      right: 24px;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-top: 8px solid #18181b;
-    }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
-    }
     .no-agent-banner {
       background: #fef3c7;
       border-bottom: 1px solid #fcd34d;
@@ -254,8 +225,6 @@
     <p>Acme Inc. - Demo website for Autive embed widget</p>
   </footer>
 
-  <div class="widget-hint" id="widget-hint">Click the chat button!</div>
-
   <script>
     // Get agent (ID or slug) and theme from URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -265,9 +234,6 @@
     if (agent) {
       // Update the code block to show the actual agent
       document.getElementById('code-agent').textContent = agent;
-
-      // Show the widget hint
-      document.getElementById('widget-hint').classList.add('visible');
 
       // Dynamically inject the embed script
       const script = document.createElement('script');

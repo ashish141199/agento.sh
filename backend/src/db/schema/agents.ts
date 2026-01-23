@@ -18,6 +18,8 @@ export interface InstructionsConfig {
 export interface EmbedConfig {
   position: 'expanded' | 'widget'
   theme: 'light' | 'dark'
+  /** Allowed domains for embedding (empty = allow all) */
+  allowedDomains: string[]
 }
 
 /**

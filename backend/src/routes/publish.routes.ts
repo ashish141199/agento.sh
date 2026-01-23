@@ -11,6 +11,7 @@ import {
 import { findToolsByAgentId } from '../db/modules/tool/tool.db'
 import { findModelById } from '../db/modules/model/model.db'
 import { updateEmbedConfigSchema } from '../schemas/publish.schema'
+import { DEFAULT_EMBED_CONFIG } from '../config/defaults'
 
 /**
  * Extract user ID from authorization header
@@ -77,7 +78,7 @@ export async function publishRoutes(fastify: FastifyInstance): Promise<void> {
         publishedAt: status.publishedAt,
         toolsCount: enabledToolsCount,
         modelName: agent?.model?.name || null,
-        embedConfig: agent?.embedConfig || { position: 'bottom-right', theme: 'light' },
+        embedConfig: agent?.embedConfig || DEFAULT_EMBED_CONFIG,
       },
     })
   })

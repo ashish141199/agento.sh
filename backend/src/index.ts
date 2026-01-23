@@ -11,6 +11,7 @@ import { publishRoutes } from './routes/publish.routes'
 import { conversationRoutes } from './routes/conversation.routes'
 import { builderRoutes } from './routes/builder.routes'
 import { knowledgeRoutes } from './routes/knowledge.routes'
+import { embedRoutes } from './routes/embed.routes'
 import { FILE_UPLOAD_DEFAULTS } from './config/knowledge.defaults'
 
 const fastify = Fastify({
@@ -34,7 +35,16 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, bo
  * Register plugins
  */
 await fastify.register(cors, {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    // Allow requests from frontend
+    if (!origin || origin === frontendUrl) {
+      callback(null, true)
+      return
+    }
+    // Allow requests to embed routes from any origin
+    callback(null, true)
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 })
@@ -62,6 +72,7 @@ await fastify.register(publishRoutes)
 await fastify.register(conversationRoutes)
 await fastify.register(builderRoutes)
 await fastify.register(knowledgeRoutes)
+await fastify.register(embedRoutes)
 
 /**
  * Health check route

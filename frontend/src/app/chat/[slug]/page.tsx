@@ -1,18 +1,32 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { Loader2 } from 'lucide-react'
 import { agentService, type PublicAgent } from '@/services/agent.service'
 import { PublicChat } from '@/components/agents/public-chat'
 
 export default function PublicChatPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const { setTheme } = useTheme()
   const slug = params.slug as string
+
+  // Read embed parameters
+  const isEmbed = searchParams.get('embed') === 'true'
+  const themeParam = searchParams.get('theme') as 'light' | 'dark' | null
 
   const [agent, setAgent] = useState<PublicAgent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Apply theme when in embed mode
+  useEffect(() => {
+    if (isEmbed && themeParam) {
+      setTheme(themeParam)
+    }
+  }, [isEmbed, themeParam, setTheme])
 
   useEffect(() => {
     async function fetchAgent() {
@@ -65,6 +79,7 @@ export default function PublicChatPage() {
         agentSlug={slug}
         agentName={agent.name}
         agentDescription={agent.description}
+        isEmbed={isEmbed}
       />
     </div>
   )

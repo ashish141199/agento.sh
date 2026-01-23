@@ -168,7 +168,7 @@ export function AgentEditor({ agent, isLoading, onPublishStateChange }: AgentEdi
       {/* Left side - Configuration */}
       <div
         className={`flex-1 md:flex-none flex flex-col min-w-0 min-h-0 md:min-w-[320px] ${mobileView === 'form' ? 'flex' : 'hidden'} md:flex`}
-        style={isDesktop ? { width: `${leftPanelWidth}%`, maxWidth: '700px' } : undefined}
+        style={isDesktop ? { width: `${leftPanelWidth}%` } : undefined}
       >
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">

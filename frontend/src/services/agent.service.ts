@@ -88,6 +88,7 @@ export interface UpdateAgentInput {
 export interface EmbedConfig {
   position: 'expanded' | 'widget'
   theme: 'light' | 'dark'
+  allowedDomains: string[]
 }
 
 /**

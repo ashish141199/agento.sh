@@ -61,11 +61,17 @@ export const DEFAULT_EMBED_POSITION: EmbedConfig['position'] = 'expanded'
 export const DEFAULT_EMBED_THEME: EmbedConfig['theme'] = 'light'
 
 /**
+ * Default allowed domains for embedding (empty = allow all)
+ */
+export const DEFAULT_EMBED_ALLOWED_DOMAINS: string[] = []
+
+/**
  * Default embed configuration
  */
 export const DEFAULT_EMBED_CONFIG: EmbedConfig = {
   position: DEFAULT_EMBED_POSITION,
   theme: DEFAULT_EMBED_THEME,
+  allowedDomains: DEFAULT_EMBED_ALLOWED_DOMAINS,
 }
 
 /**

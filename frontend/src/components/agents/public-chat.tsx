@@ -35,13 +35,15 @@ interface PublicChatProps {
   agentName: string
   /** Agent description */
   agentDescription: string | null
+  /** Whether rendered in embed mode (iframe) */
+  isEmbed?: boolean
 }
 
 /**
  * Public chat interface for published agents
  * Handles authentication, conversations, and messaging
  */
-export function PublicChat({ agentId, agentSlug, agentName, agentDescription }: PublicChatProps) {
+export function PublicChat({ agentId, agentSlug, agentName, agentDescription, isEmbed = false }: PublicChatProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const conversationIdFromUrl = searchParams.get('c')
