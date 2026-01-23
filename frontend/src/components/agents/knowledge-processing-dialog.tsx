@@ -15,6 +15,7 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -505,7 +506,7 @@ export function KnowledgeProcessingDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="sm:max-w-2xl max-h-[90vh]"
+        className="sm:max-w-2xl max-h-[90vh] overflow-hidden"
         showCloseButton={canClose}
         onPointerDownOutside={(e) => {
           if (!canClose) e.preventDefault()
@@ -521,19 +522,19 @@ export function KnowledgeProcessingDialog({
             {stage === 'complete' && 'Processing Complete'}
           </DialogTitle>
           <DialogDescription>
-            {stage === 'review' && 'Review the sources below before indexing. You can add more sources or remove existing ones.'}
+            {stage === 'review' && 'Review the sources below before indexing. You can add more sources or remove existing ones. Websites are limited to 50 pages.'}
             {stage === 'processing' && 'Please wait while we process your knowledge sources. This may take a moment.'}
             {stage === 'complete' && `Successfully indexed ${successCount} source${successCount !== 1 ? 's' : ''}.${failCount > 0 ? ` ${failCount} failed.` : ''}`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-hidden">
           {/* Review Stage */}
           {stage === 'review' && (
             <>
               {/* Sources list */}
               {sources.length > 0 && (
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                <div className="space-y-2 max-h-[400px] overflow-y-auto w-full">
                   {sources.map((source) => {
                     const isExpanded = expandedSources.has(source.id)
                     const hasDiscoveredPages = source.type === 'website' &&
@@ -546,7 +547,7 @@ export function KnowledgeProcessingDialog({
                     return (
                       <div
                         key={source.id}
-                        className="rounded-lg border border-neutral-200 dark:border-neutral-800"
+                        className="rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden"
                       >
                         <div className="flex items-center gap-3 p-3">
                           {/* Expand/collapse button for websites with pages */}
@@ -606,7 +607,7 @@ export function KnowledgeProcessingDialog({
 
                         {/* Discovered pages list */}
                         {hasDiscoveredPages && isExpanded && (
-                          <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+                          <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 overflow-hidden">
                             <div className="px-3 py-2 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800">
                               <span className="text-xs text-neutral-500">
                                 {selectedCount} of {totalPages} pages selected
@@ -626,23 +627,35 @@ export function KnowledgeProcessingDialog({
                                 </button>
                               </div>
                             </div>
-                            <div className="max-h-[200px] overflow-y-auto">
+                            <div className="max-h-[200px] overflow-y-auto overflow-x-hidden w-full">
                               {source.discovery?.pages?.map((page) => (
-                                <label
+                                <div
                                   key={page.url}
-                                  className="flex items-center gap-3 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={page.selected}
                                     onChange={() => togglePageSelection(source.id, page.url)}
-                                    className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                                    className="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary cursor-pointer"
                                   />
-                                  <div className="flex-1 min-w-0">
+                                  <label
+                                    className="overflow-hidden cursor-pointer"
+                                    onClick={() => togglePageSelection(source.id, page.url)}
+                                  >
                                     <p className="text-sm truncate">{page.title}</p>
                                     <p className="text-xs text-neutral-500 truncate">{page.url}</p>
-                                  </div>
-                                </label>
+                                  </label>
+                                  <a
+                                    href={page.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </div>
                               ))}
                             </div>
                           </div>

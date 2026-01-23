@@ -131,7 +131,7 @@ export const FILE_UPLOAD_DEFAULTS = {
  */
 export const WEBSITE_CRAWL_DEFAULTS = {
   /** Maximum pages to crawl per website */
-  maxPages: 100,
+  maxPages: 50,
   /** Maximum crawl depth from starting URL */
   maxDepth: 10,
   /** Request timeout in milliseconds */
