@@ -12,10 +12,13 @@ import {
   findConversationsByAgentAndUser,
   findMessagesByConversationId,
   createConversationMessage,
+  updateConversationMessage,
   conversationBelongsToUser,
   updateConversationTitle,
   deleteConversation,
 } from '../db/modules/conversation/conversation.db'
+import { createToolCall } from '../db/modules/tool-call/tool-call.db'
+import { createAiUsage } from '../db/modules/ai-usage/ai-usage.db'
 import type { ApiConnectorConfig, ApiConnectorAuth } from '../db/schema/tools'
 
 /**
@@ -113,6 +116,19 @@ function createApiConnectorTool(config: ApiConnectorConfig, description: string,
       }
     },
   })
+}
+
+/**
+ * Build a map from sanitized tool name to original display title
+ */
+function buildToolTitleMap(dbTools: ToolWithAssignment[]): Record<string, string> {
+  const titleMap: Record<string, string> = {}
+  for (const dbTool of dbTools) {
+    if (!dbTool.enabled || dbTool.agentEnabled === false) continue
+    const sanitizedName = sanitizeToolName(dbTool.name)
+    titleMap[sanitizedName] = dbTool.name
+  }
+  return titleMap
 }
 
 /**
@@ -295,6 +311,7 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
     // Get the agent's tools
     const dbTools = await findToolsByAgentId(conversation.agentId)
     const agentTools = buildAiSdkTools(dbTools)
+    const toolTitleMap = buildToolTitleMap(dbTools)
 
     // Save the user's message to database
     const lastUserMessage = messages[messages.length - 1]
@@ -321,6 +338,23 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
     reply.raw.setHeader('Access-Control-Allow-Origin', origin)
     reply.raw.setHeader('Access-Control-Allow-Credentials', 'true')
 
+    // Create the assistant message first (with empty content) so we can log usage against it
+    // This avoids FK constraint violation when logging usage in onStepFinish
+    const assistantMessage = await createConversationMessage({
+      agentId: conversation.agentId,
+      conversationId,
+      content: '', // Will be updated in onFinish
+      isAgent: true,
+      model: modelId,
+    })
+    const messageId = assistantMessage!.id
+
+    // Track usage across all steps
+    let totalPromptTokens = 0
+    let totalCompletionTokens = 0
+    let totalCost = 0
+    let stepNumber = 0
+
     // Stream the response
     const result = streamText({
       model: openrouter.chat(modelId),
@@ -328,15 +362,84 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       messages: await convertToModelMessages(messages),
       stopWhen: stepCountIs(25),
       tools: Object.keys(agentTools).length > 0 ? agentTools : undefined,
-      onFinish: async ({ text }) => {
-        if (text) {
-          await createConversationMessage({
-            agentId: conversation.agentId,
-            conversationId,
-            content: text,
-            isAgent: true,
-          })
+      onStepFinish: async ({ toolCalls: stepToolCalls, toolResults, usage, providerMetadata }) => {
+        stepNumber++
+
+        // Determine step type based on whether there are tool calls
+        const stepType = stepToolCalls && stepToolCalls.length > 0 ? 'tool-call' : stepNumber === 1 ? 'initial' : 'continue'
+
+        // Log AI usage for this step
+        if (usage) {
+          const promptTokens = usage.inputTokens ?? 0
+          const completionTokens = usage.outputTokens ?? 0
+          // Cost is in providerMetadata.openrouter.usage.cost
+          const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+          const cost = openrouterMeta?.usage?.cost ?? 0
+          console.log('[conversation] Step cost from providerMetadata:', cost)
+
+          totalPromptTokens += promptTokens
+          totalCompletionTokens += completionTokens
+          totalCost += cost
+
+          try {
+            await createAiUsage({
+              messageId,
+              agentId: conversation.agentId,
+              conversationId,
+              stepNumber,
+              stepType,
+              model: modelId,
+              promptTokens,
+              completionTokens,
+              totalTokens: promptTokens + completionTokens,
+              cost,
+              cachedTokens: usage.inputTokenDetails?.cacheReadTokens ?? null,
+              reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? null,
+            })
+          } catch (error) {
+            console.error('[conversation] Failed to log AI usage:', error)
+          }
         }
+
+        // Log tool calls for this step
+        if (stepToolCalls && stepToolCalls.length > 0) {
+          for (const tc of stepToolCalls) {
+            const tcResult = toolResults?.find((r) => r.toolCallId === tc.toolCallId)
+
+            try {
+              await createToolCall({
+                id: tc.toolCallId,
+                messageId,
+                agentId: conversation.agentId,
+                conversationId,
+                stepNumber,
+                toolName: tc.toolName,
+                toolTitle: toolTitleMap[tc.toolName] || tc.toolName,
+                toolCallId: tc.toolCallId,
+                input: tc.input as Record<string, unknown>,
+                output: tcResult?.output as Record<string, unknown> | undefined,
+                status: tcResult ? 'success' : 'pending',
+              })
+            } catch (error) {
+              console.error('[conversation] Failed to log tool call:', error)
+            }
+          }
+        }
+      },
+      onFinish: async (finishData) => {
+        const { text, providerMetadata } = finishData
+        // Get total cost from providerMetadata (fallback to accumulated cost)
+        const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+        const finalCost = openrouterMeta?.usage?.cost ?? totalCost
+        console.log('[conversation] Final cost from providerMetadata:', finalCost)
+        // Update the message with final content and usage totals
+        await updateConversationMessage(messageId, {
+          content: text || '',
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
+          totalTokens: totalPromptTokens + totalCompletionTokens,
+          cost: finalCost,
+        })
       },
     })
 

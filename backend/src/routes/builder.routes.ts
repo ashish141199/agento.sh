@@ -13,6 +13,7 @@ import {
   saveBuilderConversation,
   type UIMessage as DBUIMessage,
 } from '../db/modules/builder/builder.db'
+import { createAiUsage } from '../db/modules/ai-usage/ai-usage.db'
 import { findAgentByIdWithModel } from '../db/modules/agent/agent.db'
 import { findToolsByAgentId } from '../db/modules/tool/tool.db'
 import {
@@ -154,13 +155,49 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
       // Create builder tools with context
       const builderTools = createBuilderTools(context)
 
+      // Track usage for this request
+      const modelId = 'anthropic/claude-sonnet-4'
+      interface StepUsage {
+        stepNumber: number
+        stepType: string
+        promptTokens: number
+        completionTokens: number
+        cost: number
+      }
+      const stepUsages: StepUsage[] = []
+      let stepNumber = 0
+      let finalCost = 0
+
       // Stream the response
       const result = streamText({
-        model: openrouter.chat('anthropic/claude-sonnet-4'),
+        model: openrouter.chat(modelId),
         system: systemPrompt,
         messages: await convertToModelMessages(messages),
         tools: builderTools,
         stopWhen: stepCountIs(5),
+        onStepFinish: async ({ toolCalls: stepToolCalls, usage, providerMetadata }) => {
+          stepNumber++
+          if (usage) {
+            const promptTokens = usage.inputTokens ?? 0
+            const completionTokens = usage.outputTokens ?? 0
+            const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+            const cost = openrouterMeta?.usage?.cost ?? 0
+            const stepType = stepToolCalls && stepToolCalls.length > 0 ? 'tool-call' : stepNumber === 1 ? 'initial' : 'continue'
+
+            stepUsages.push({
+              stepNumber,
+              stepType,
+              promptTokens,
+              completionTokens,
+              cost,
+            })
+          }
+        },
+        onFinish: async ({ providerMetadata }) => {
+          // Get final total cost from providerMetadata
+          const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+          finalCost = openrouterMeta?.usage?.cost ?? 0
+        },
       })
 
       // Create the UI message stream response with proper message persistence
@@ -175,6 +212,30 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
             context.currentAgentId,
             allMessages as DBUIMessage[]
           )
+
+          // Find the last assistant message to link usage to
+          const lastAssistantMessage = [...allMessages].reverse().find(m => m.role === 'assistant')
+          if (lastAssistantMessage && stepUsages.length > 0) {
+            // Log usage for each step
+            for (const step of stepUsages) {
+              try {
+                await createAiUsage({
+                  builderMessageId: lastAssistantMessage.id,
+                  agentId: context.currentAgentId || undefined,
+                  stepNumber: step.stepNumber,
+                  stepType: step.stepType,
+                  model: modelId,
+                  promptTokens: step.promptTokens,
+                  completionTokens: step.completionTokens,
+                  totalTokens: step.promptTokens + step.completionTokens,
+                  cost: step.cost,
+                })
+              } catch (error) {
+                console.error('[builder] Failed to log AI usage:', error)
+              }
+            }
+            console.log('[builder] Logged usage for', stepUsages.length, 'steps, total cost:', finalCost)
+          }
         },
       })
 

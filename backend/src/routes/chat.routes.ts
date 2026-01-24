@@ -4,12 +4,18 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { z } from 'zod'
 import { authMiddleware } from '../middleware/auth.middleware'
 import { findAgentByIdWithModel, agentBelongsToUser } from '../db/modules/agent/agent.db'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { messages as messagesTable } from '../db/schema'
 import {
   findMessagesByAgentId,
   createMessage,
   deleteMessagesByAgentId,
   hasMessages,
+  updateMessageUsage,
 } from '../db/modules/message/message.db'
+import { createToolCall } from '../db/modules/tool-call/tool-call.db'
+import { createAiUsage } from '../db/modules/ai-usage/ai-usage.db'
 import { findToolsByAgentId, type ToolWithAssignment } from '../db/modules/tool/tool.db'
 import type { ApiConnectorConfig, ApiConnectorAuth, McpConnectorConfig, ToolInputSchema } from '../db/schema/tools'
 import { McpClient, type McpAuth } from '../services/mcp.service'
@@ -222,6 +228,21 @@ function createMcpConnectorTool(
 }
 
 /**
+ * Build a map from sanitized tool name to original display title
+ * @param dbTools - Tools from database
+ * @returns Map of sanitized name -> original title
+ */
+function buildToolTitleMap(dbTools: ToolWithAssignment[]): Record<string, string> {
+  const titleMap: Record<string, string> = {}
+  for (const dbTool of dbTools) {
+    if (!dbTool.enabled || dbTool.agentEnabled === false) continue
+    const sanitizedName = sanitizeToolName(dbTool.name)
+    titleMap[sanitizedName] = dbTool.name
+  }
+  return titleMap
+}
+
+/**
  * Build AI SDK tools from database tools
  * Only includes tools that users have explicitly configured for their agent
  * @param dbTools - Tools from database
@@ -403,6 +424,7 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
     // Get the agent's tools
     const dbTools = await findToolsByAgentId(agentId)
     const agentTools = buildAiSdkTools(dbTools)
+    const toolTitleMap = buildToolTitleMap(dbTools)
 
     // Check if agent has knowledge and get settings
     const knowledgeSettings = agent.settings?.knowledge || DEFAULT_KNOWLEDGE_SETTINGS
@@ -474,6 +496,21 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
+    // Create the message first (with empty content) so we can log usage against it
+    const assistantMessage = await createMessage({
+      agentId,
+      content: '', // Will be updated in onFinish
+      isAgent: true,
+      model: modelId,
+    })
+    const messageId = assistantMessage.id
+
+    // Track usage across all steps
+    let totalPromptTokens = 0
+    let totalCompletionTokens = 0
+    let totalCost = 0
+    let stepNumber = 0
+
     // Stream the response with history-limited messages
     const result = streamText({
       model: openrouter.chat(modelId),
@@ -481,14 +518,85 @@ export async function chatRoutes(fastify: FastifyInstance): Promise<void> {
       messages: await convertToModelMessages(limitedMessages),
       stopWhen: stepCountIs(25),
       tools: Object.keys(agentTools).length > 0 ? agentTools : undefined,
-      onFinish: async ({ text }) => {
-        // Save the agent's response to database
+      onStepFinish: async ({ toolCalls: stepToolCalls, toolResults, usage, providerMetadata }) => {
+        stepNumber++
+
+        // Determine step type based on whether there are tool calls
+        const stepType = stepToolCalls && stepToolCalls.length > 0 ? 'tool-call' : stepNumber === 1 ? 'initial' : 'continue'
+
+        // Log AI usage for this step
+        if (usage) {
+          const promptTokens = usage.inputTokens ?? 0
+          const completionTokens = usage.outputTokens ?? 0
+          // Cost is in providerMetadata.openrouter.usage.cost
+          const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+          const cost = openrouterMeta?.usage?.cost ?? 0
+          console.log('[chat] Step cost from providerMetadata:', cost)
+
+          totalPromptTokens += promptTokens
+          totalCompletionTokens += completionTokens
+          totalCost += cost
+
+          try {
+            await createAiUsage({
+              messageId,
+              agentId,
+              stepNumber,
+              stepType,
+              model: modelId,
+              promptTokens,
+              completionTokens,
+              totalTokens: promptTokens + completionTokens,
+              cost,
+              cachedTokens: usage.inputTokenDetails?.cacheReadTokens ?? null,
+              reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? null,
+            })
+          } catch (error) {
+            console.error('[chat] Failed to log AI usage:', error)
+          }
+        }
+
+        // Log tool calls for this step
+        if (stepToolCalls && stepToolCalls.length > 0) {
+          for (const tc of stepToolCalls) {
+            // Find the corresponding result
+            const tcResult = toolResults?.find((r) => r.toolCallId === tc.toolCallId)
+
+            try {
+              await createToolCall({
+                id: tc.toolCallId,
+                messageId,
+                agentId,
+                stepNumber,
+                toolName: tc.toolName,
+                toolTitle: toolTitleMap[tc.toolName] || tc.toolName,
+                toolCallId: tc.toolCallId,
+                input: tc.input as Record<string, unknown>,
+                output: tcResult?.output as Record<string, unknown> | undefined,
+                status: tcResult ? 'success' : 'pending',
+              })
+            } catch (error) {
+              console.error('[chat] Failed to log tool call:', error)
+            }
+          }
+        }
+      },
+      onFinish: async (finishData) => {
+        const { text, providerMetadata } = finishData
+        // Get total cost from providerMetadata (fallback to accumulated cost)
+        const openrouterMeta = providerMetadata?.openrouter as { usage?: { cost?: number } } | undefined
+        const finalCost = openrouterMeta?.usage?.cost ?? totalCost
+        console.log('[chat] Final cost from providerMetadata:', finalCost)
+        // Update the message with final content and usage totals
         if (text) {
-          await createMessage({
-            agentId,
-            content: text,
-            isAgent: true,
+          await updateMessageUsage(messageId, {
+            promptTokens: totalPromptTokens,
+            completionTokens: totalCompletionTokens,
+            totalTokens: totalPromptTokens + totalCompletionTokens,
+            cost: finalCost,
           })
+          // Update content separately using raw SQL since updateMessageUsage doesn't handle content
+          await db.update(messagesTable).set({ content: text }).where(eq(messagesTable.id, messageId))
         }
       },
     })

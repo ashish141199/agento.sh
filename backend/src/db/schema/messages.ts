@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, integer, real } from 'drizzle-orm/pg-core'
 import { agents } from './agents'
 import { users } from './users'
 import { conversations } from './conversations'
@@ -32,6 +32,23 @@ export const messages = pgTable('messages', {
 
   /** Timestamp when message was created */
   createdAt: timestamp('created_at').notNull().defaultNow(),
+
+  // === Usage tracking (for agent messages only) ===
+
+  /** Model used for this response */
+  model: text('model'),
+
+  /** Total prompt tokens across all steps */
+  promptTokens: integer('prompt_tokens'),
+
+  /** Total completion tokens across all steps */
+  completionTokens: integer('completion_tokens'),
+
+  /** Total tokens (prompt + completion) */
+  totalTokens: integer('total_tokens'),
+
+  /** Total cost in credits */
+  cost: real('cost'),
 })
 
 /**

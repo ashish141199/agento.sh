@@ -112,15 +112,21 @@ export async function findMessagesByConversationId(conversationId: string) {
 
 /**
  * Create a message in a conversation
- * @param data - Message data including conversationId
+ * @param data - Message data including conversationId and optional usage fields
  * @returns Created message
  */
 export async function createConversationMessage(data: {
+  id?: string
   agentId: string
   conversationId: string
   userId?: string
   content: string
   isAgent: boolean
+  model?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+  cost?: number
 }) {
   const [message] = await db.insert(messages).values(data).returning()
 
@@ -128,4 +134,25 @@ export async function createConversationMessage(data: {
   await touchConversation(data.conversationId)
 
   return message
+}
+
+/**
+ * Update a conversation message
+ * @param id - Message ID
+ * @param data - Fields to update
+ * @returns Updated message or null
+ */
+export async function updateConversationMessage(
+  id: string,
+  data: {
+    content?: string
+    model?: string
+    promptTokens?: number
+    completionTokens?: number
+    totalTokens?: number
+    cost?: number
+  }
+) {
+  const [message] = await db.update(messages).set(data).where(eq(messages.id, id)).returning()
+  return message || null
 }

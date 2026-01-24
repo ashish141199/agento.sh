@@ -42,6 +42,30 @@ export async function createMessage(data: InsertMessage): Promise<Message> {
 }
 
 /**
+ * Update a message with usage data
+ * @param id - Message ID
+ * @param data - Usage data to update
+ * @returns The updated message
+ */
+export async function updateMessageUsage(
+  id: string,
+  data: {
+    model?: string
+    promptTokens?: number
+    completionTokens?: number
+    totalTokens?: number
+    cost?: number
+  }
+): Promise<Message | null> {
+  const result = await db
+    .update(messages)
+    .set(data)
+    .where(eq(messages.id, id))
+    .returning()
+  return result[0] ?? null
+}
+
+/**
  * Delete all messages for an agent
  * @param agentId - The agent ID
  * @returns Number of deleted messages
