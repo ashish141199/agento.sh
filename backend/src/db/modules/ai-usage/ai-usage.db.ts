@@ -30,7 +30,7 @@ export async function createAiUsageBatch(data: InsertAiUsage[]): Promise<AiUsage
 }
 
 /**
- * Find all AI usage logs for a chat message
+ * Find all AI usage logs for a message
  * @param messageId - The message ID
  * @returns List of AI usage logs ordered by step number
  */
@@ -39,19 +39,6 @@ export async function findAiUsageByMessageId(messageId: string): Promise<AiUsage
     .select()
     .from(aiUsage)
     .where(eq(aiUsage.messageId, messageId))
-    .orderBy(asc(aiUsage.stepNumber))
-}
-
-/**
- * Find all AI usage logs for a builder message
- * @param builderMessageId - The builder message ID
- * @returns List of AI usage logs ordered by step number
- */
-export async function findAiUsageByBuilderMessageId(builderMessageId: string): Promise<AiUsage[]> {
-  return db
-    .select()
-    .from(aiUsage)
-    .where(eq(aiUsage.builderMessageId, builderMessageId))
     .orderBy(asc(aiUsage.stepNumber))
 }
 

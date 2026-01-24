@@ -13,7 +13,7 @@ import {
   saveBuilderConversation,
   type UIMessage as DBUIMessage,
 } from '../db/modules/builder/builder.db'
-import { createAiUsage } from '../db/modules/ai-usage/ai-usage.db'
+import { createBuilderUsage } from '../db/modules/builder-usage/builder-usage.db'
 import { findAgentByIdWithModel } from '../db/modules/agent/agent.db'
 import { findToolsByAgentId } from '../db/modules/tool/tool.db'
 import {
@@ -177,6 +177,7 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
         stopWhen: stepCountIs(5),
         onStepFinish: async ({ toolCalls: stepToolCalls, usage, providerMetadata }) => {
           stepNumber++
+          console.log('[builder] onStepFinish called, step:', stepNumber, 'usage:', JSON.stringify(usage))
           if (usage) {
             const promptTokens = usage.inputTokens ?? 0
             const completionTokens = usage.outputTokens ?? 0
@@ -184,6 +185,7 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
             const cost = openrouterMeta?.usage?.cost ?? 0
             const stepType = stepToolCalls && stepToolCalls.length > 0 ? 'tool-call' : stepNumber === 1 ? 'initial' : 'continue'
 
+            console.log('[builder] Recording step usage:', { stepNumber, stepType, promptTokens, completionTokens, cost })
             stepUsages.push({
               stepNumber,
               stepType,
@@ -204,23 +206,35 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
       const webResponse = result.toUIMessageStreamResponse({
         originalMessages: messages,
         onFinish: async ({ messages: allMessages }) => {
+          console.log('[builder] toUIMessageStreamResponse.onFinish called')
+          console.log('[builder] allMessages count:', allMessages.length)
+          console.log('[builder] stepUsages collected:', stepUsages.length)
+
+          // Ensure all messages have IDs (generate if missing)
+          const messagesWithIds = allMessages.map(msg => ({
+            ...msg,
+            id: msg.id || crypto.randomUUID(),
+          }))
+
           // Save the complete conversation state
           // This includes all messages with their parts in the correct order
           // and includes tool outputs from client-side tools like askUser
           await saveBuilderConversation(
             userId,
             context.currentAgentId,
-            allMessages as DBUIMessage[]
+            messagesWithIds as DBUIMessage[]
           )
 
           // Find the last assistant message to link usage to
-          const lastAssistantMessage = [...allMessages].reverse().find(m => m.role === 'assistant')
+          const lastAssistantMessage = [...messagesWithIds].reverse().find(m => m.role === 'assistant')
+          console.log('[builder] lastAssistantMessage:', lastAssistantMessage?.id, lastAssistantMessage?.role)
           if (lastAssistantMessage && stepUsages.length > 0) {
             // Log usage for each step
             for (const step of stepUsages) {
               try {
-                await createAiUsage({
+                await createBuilderUsage({
                   builderMessageId: lastAssistantMessage.id,
+                  userId,
                   agentId: context.currentAgentId || undefined,
                   stepNumber: step.stepNumber,
                   stepType: step.stepType,
@@ -231,10 +245,12 @@ export async function builderRoutes(fastify: FastifyInstance): Promise<void> {
                   cost: step.cost,
                 })
               } catch (error) {
-                console.error('[builder] Failed to log AI usage:', error)
+                console.error('[builder] Failed to log builder usage:', error)
               }
             }
             console.log('[builder] Logged usage for', stepUsages.length, 'steps, total cost:', finalCost)
+          } else {
+            console.log('[builder] Skipping usage logging - lastAssistantMessage:', !!lastAssistantMessage, 'stepUsages.length:', stepUsages.length)
           }
         },
       })

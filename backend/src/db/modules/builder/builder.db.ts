@@ -222,7 +222,7 @@ export async function saveBuilderConversation(
         }
 
         return {
-          id: msg.id,
+          id: msg.id || crypto.randomUUID(),
           userId,
           agentId,
           role: msg.role as 'user' | 'assistant',

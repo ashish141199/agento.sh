@@ -1,29 +1,29 @@
 import { pgTable, text, timestamp, integer, real } from 'drizzle-orm/pg-core'
-import { messages } from './messages'
+import { builderMessages } from './builder-messages'
+import { users } from './users'
 import { agents } from './agents'
-import { conversations } from './conversations'
 
 /**
- * AI usage table schema
- * Tracks token usage and cost for each LLM invocation (step) in agent chats
+ * Builder usage table schema
+ * Tracks token usage and cost for each LLM invocation in the AI Builder assistant
  */
-export const aiUsage = pgTable('ai_usage', {
+export const builderUsage = pgTable('builder_usage', {
   /** Unique identifier (UUID) */
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
 
-  /** Message this usage belongs to (the assistant message) */
-  messageId: text('message_id')
+  /** Builder message this usage belongs to */
+  builderMessageId: text('builder_message_id')
     .notNull()
-    .references(() => messages.id, { onDelete: 'cascade' }),
+    .references(() => builderMessages.id, { onDelete: 'cascade' }),
 
-  /** Agent this usage belongs to */
+  /** User who owns this usage */
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+
+  /** Agent being built/edited (optional - may not exist yet during creation) */
   agentId: text('agent_id')
-    .notNull()
     .references(() => agents.id, { onDelete: 'cascade' }),
-
-  /** Conversation this usage belongs to (optional) */
-  conversationId: text('conversation_id')
-    .references(() => conversations.id, { onDelete: 'cascade' }),
 
   /** Step number within the message (1, 2, 3...) */
   stepNumber: integer('step_number').notNull(),
@@ -43,13 +43,13 @@ export const aiUsage = pgTable('ai_usage', {
   /** Total tokens (prompt + completion) */
   totalTokens: integer('total_tokens').notNull(),
 
-  /** Cost in credits for this step */
+  /** Cost in USD for this step */
   cost: real('cost').notNull(),
 
   /** Number of cached tokens (optional) */
   cachedTokens: integer('cached_tokens'),
 
-  /** Number of reasoning tokens (optional, for models like o1) */
+  /** Number of reasoning tokens (optional) */
   reasoningTokens: integer('reasoning_tokens'),
 
   /** Timestamp when this step completed */
@@ -57,11 +57,11 @@ export const aiUsage = pgTable('ai_usage', {
 })
 
 /**
- * AI usage type inferred from schema
+ * Builder usage type inferred from schema
  */
-export type AiUsage = typeof aiUsage.$inferSelect
+export type BuilderUsage = typeof builderUsage.$inferSelect
 
 /**
- * Insert AI usage type inferred from schema
+ * Insert builder usage type inferred from schema
  */
-export type InsertAiUsage = typeof aiUsage.$inferInsert
+export type InsertBuilderUsage = typeof builderUsage.$inferInsert
