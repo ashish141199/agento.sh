@@ -12,10 +12,10 @@ const domainSchema = z.string()
     let domain = val.replace(/^https?:\/\//, '')
     // Remove www. prefix
     domain = domain.replace(/^www\./, '')
-    // Remove path and query string
-    domain = domain.split('/')[0].split('?')[0]
+    // Remove path and query string (split always returns at least one element)
+    domain = domain.split('/')[0]!.split('?')[0]!
     // Remove port
-    domain = domain.split(':')[0]
+    domain = domain.split(':')[0]!
     return domain.toLowerCase()
   })
   .refine((val) => {

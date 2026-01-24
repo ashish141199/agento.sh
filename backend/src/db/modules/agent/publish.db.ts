@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import { db } from '../../index'
 import { agents, type Agent, type EmbedConfig } from '../../schema'
 import { findAgentById } from './agent.db'
+import { DEFAULT_EMBED_CONFIG } from '../../../config/defaults'
 
 /**
  * Generate a URL-friendly slug from a name
@@ -156,7 +157,7 @@ export async function updateEmbedConfig(
   const agent = await findAgentById(id)
   if (!agent) return undefined
 
-  const currentConfig = agent.embedConfig || { position: 'bottom-right', theme: 'light' }
+  const currentConfig = agent.embedConfig || DEFAULT_EMBED_CONFIG
   const newConfig = { ...currentConfig, ...config }
 
   const result = await db
