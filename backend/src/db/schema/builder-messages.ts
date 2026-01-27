@@ -44,7 +44,16 @@ export const builderMessages = pgTable('builder_messages', {
  */
 export type MessagePart =
   | { type: 'text'; text: string }
-  | { type: string; toolCallId?: string; toolName?: string; state?: string; input?: unknown; output?: unknown }
+  | {
+      type: 'tool-invocation' | 'tool-result' | string
+      toolCallId?: string
+      toolName?: string
+      state?: string
+      args?: unknown // for tool-invocation
+      result?: unknown // for tool-result
+      input?: unknown // legacy
+      output?: unknown // legacy
+    }
 
 /**
  * Builder message type inferred from schema

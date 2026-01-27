@@ -200,7 +200,7 @@ export function AnsweredSummary({ input, response }: AnsweredSummaryProps) {
   // Skipped questions - simple display
   if (response.skipped) {
     return (
-      <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
+      <div className="flex items-center gap-2 py-1.5 px-3 bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 w-full">
         <SkipForward className="h-3 w-3 text-neutral-500 dark:text-neutral-400 shrink-0" />
         <span className="text-neutral-600 dark:text-neutral-300 flex-1">
           Questions skipped
@@ -213,7 +213,7 @@ export function AnsweredSummary({ input, response }: AnsweredSummaryProps) {
   const answeredCount = response.answers.filter(isQuestionAnswered).length
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 min-w-[200px]">
+    <div className="bg-neutral-50 dark:bg-neutral-700 rounded text-xs my-1 w-full">
       {/* Collapsed header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

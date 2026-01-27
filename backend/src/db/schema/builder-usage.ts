@@ -11,10 +11,9 @@ export const builderUsage = pgTable('builder_usage', {
   /** Unique identifier (UUID) */
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
 
-  /** Builder message this usage belongs to */
+  /** Builder message this usage belongs to (nullable - message may be deleted) */
   builderMessageId: text('builder_message_id')
-    .notNull()
-    .references(() => builderMessages.id, { onDelete: 'cascade' }),
+    .references(() => builderMessages.id, { onDelete: 'set null' }),
 
   /** User who owns this usage */
   userId: text('user_id')

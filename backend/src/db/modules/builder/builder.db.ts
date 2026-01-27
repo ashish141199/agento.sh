@@ -4,7 +4,7 @@
  * @module db/modules/builder/builder.db
  */
 
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, desc } from 'drizzle-orm'
 import { db } from '../../index'
 import {
   builderMessages,
@@ -12,6 +12,9 @@ import {
   type InsertBuilderMessage,
   type MessagePart,
 } from '../../schema'
+
+// Re-export MessagePart for use in routes
+export type { MessagePart }
 
 /**
  * UIMessage structure from Vercel AI SDK
@@ -151,88 +154,151 @@ export async function getBuilderMessages(
 }
 
 /**
- * Save complete conversation state
- * Replaces all existing messages with the new ones
- * This follows the AI SDK's recommended pattern for message persistence
+ * Get message history for AI in UIMessage format
+ * Fetches the last N messages for context
  * @param userId - The user ID
- * @param agentId - The agent ID (optional, but may have changed during conversation)
- * @param messages - Complete UIMessage array from AI SDK
+ * @param agentId - The agent ID (optional)
+ * @param limit - Maximum number of messages to fetch (default 20)
+ * @returns Array of UIMessages for AI SDK
  */
-export async function saveBuilderConversation(
+export async function getMessageHistoryForAI(
   userId: string,
   agentId: string | null,
-  messages: UIMessage[]
-): Promise<void> {
-  // Delete existing messages for this context
-  // We need to handle both:
-  // 1. Messages with the current agentId (if set)
-  // 2. Orphan messages (agentId is null) - for when an agent was just created
-  if (agentId) {
-    // Delete messages for this agent
-    await db
-      .delete(builderMessages)
-      .where(eq(builderMessages.agentId, agentId))
-    // Also delete any orphan messages for this user (conversation that created this agent)
-    await db
-      .delete(builderMessages)
-      .where(
-        and(
-          eq(builderMessages.userId, userId),
-          isNull(builderMessages.agentId)
-        )
+  limit = 20
+): Promise<UIMessage[]> {
+  // Build the query based on whether we have an agentId
+  const whereClause = agentId
+    ? eq(builderMessages.agentId, agentId)
+    : and(
+        eq(builderMessages.userId, userId),
+        isNull(builderMessages.agentId)
       )
-  } else {
-    // No agent yet, just delete orphan messages
-    await db
-      .delete(builderMessages)
-      .where(
-        and(
-          eq(builderMessages.userId, userId),
-          isNull(builderMessages.agentId)
-        )
-      )
-  }
 
-  // Insert all messages with their parts
-  if (messages.length > 0) {
-    const messagesToInsert: InsertBuilderMessage[] = messages
-      .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-      .map(msg => {
-        // Extract text content for the content field
-        let textContent = ''
-        const parts: MessagePart[] = []
+  // Fetch messages ordered by createdAt descending (newest first), then reverse
+  const messages = await db
+    .select()
+    .from(builderMessages)
+    .where(whereClause)
+    .orderBy(desc(builderMessages.createdAt))
+    .limit(limit)
 
-        if (msg.parts) {
-          for (const part of msg.parts) {
-            if (part.type === 'text' && part.text) {
-              textContent = part.text
-              parts.push({ type: 'text', text: part.text })
-            } else {
-              // Store tool call parts with all their data
-              parts.push({
-                type: part.type,
-                toolCallId: part.toolCallId as string | undefined,
-                toolName: part.toolName as string | undefined,
-                state: part.state as string | undefined,
-                input: part.input,
-                output: part.output,
-              })
-            }
-          }
-        }
+  // Reverse to get chronological order (oldest first)
+  const chronologicalMessages = messages.reverse()
 
-        return {
-          id: msg.id || crypto.randomUUID(),
-          userId,
-          agentId,
-          role: msg.role as 'user' | 'assistant',
-          content: textContent || msg.content || '',
-          parts: parts.length > 0 ? parts : null,
-        }
-      })
-
-    if (messagesToInsert.length > 0) {
-      await db.insert(builderMessages).values(messagesToInsert)
-    }
-  }
+  // Convert to UIMessage format
+  return chronologicalMessages.map(msg => ({
+    id: msg.id,
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+    parts: Array.isArray(msg.parts) ? msg.parts : undefined,
+  }))
 }
+
+/**
+ * Save a user message to the database
+ * @param userId - The user ID
+ * @param agentId - The agent ID (optional)
+ * @param content - The message content
+ * @returns The created message
+ */
+export async function saveUserMessage(
+  userId: string,
+  agentId: string | null,
+  content: string
+): Promise<BuilderMessage> {
+  const result = await db
+    .insert(builderMessages)
+    .values({
+      userId,
+      agentId,
+      role: 'user',
+      content,
+      parts: [{ type: 'text', text: content }],
+    })
+    .returning()
+  return result[0]!
+}
+
+/**
+ * Save tool results as a user message to the database
+ * Used when continuing after askUser or other human-in-the-loop tools
+ * @param userId - The user ID
+ * @param agentId - The agent ID (optional)
+ * @param toolResults - Array of tool results to save
+ * @returns The created message
+ */
+export async function saveToolResultMessage(
+  userId: string,
+  agentId: string | null,
+  toolResults: Array<{ toolCallId: string; toolName: string; result: unknown }>
+): Promise<BuilderMessage> {
+  const parts: MessagePart[] = toolResults.map(tr => ({
+    type: 'tool-result',
+    toolCallId: tr.toolCallId,
+    toolName: tr.toolName,
+    result: tr.result,
+  }))
+
+  const result = await db
+    .insert(builderMessages)
+    .values({
+      userId,
+      agentId,
+      role: 'user',
+      content: '', // Tool results don't have text content
+      parts,
+    })
+    .returning()
+  return result[0]!
+}
+
+/**
+ * Save an assistant message to the database
+ * @param userId - The user ID
+ * @param agentId - The agent ID (optional)
+ * @param content - The text content
+ * @param parts - The message parts (including tool calls, etc.)
+ * @returns The created message
+ */
+export async function saveAssistantMessage(
+  userId: string,
+  agentId: string | null,
+  content: string,
+  parts: MessagePart[]
+): Promise<BuilderMessage> {
+  const result = await db
+    .insert(builderMessages)
+    .values({
+      userId,
+      agentId,
+      role: 'assistant',
+      content,
+      parts: parts.length > 0 ? parts : null,
+    })
+    .returning()
+  return result[0]!
+}
+
+/**
+ * Update an assistant message (e.g., after tool calls complete)
+ * @param messageId - The message ID to update
+ * @param content - The updated text content
+ * @param parts - The updated message parts
+ * @returns The updated message
+ */
+export async function updateAssistantMessage(
+  messageId: string,
+  content: string,
+  parts: MessagePart[]
+): Promise<BuilderMessage> {
+  const result = await db
+    .update(builderMessages)
+    .set({
+      content,
+      parts: parts.length > 0 ? parts : null,
+    })
+    .where(eq(builderMessages.id, messageId))
+    .returning()
+  return result[0]!
+}
+

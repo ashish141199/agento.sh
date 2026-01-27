@@ -4,7 +4,7 @@
  * @module hooks/use-ask-user
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { AskUserInput, AskUserResponse } from '@/types/ask-user.types'
 
 /** Stored response data for a submitted askUser tool call */
@@ -36,8 +36,10 @@ interface UseAskUserReturn {
     addToolOutput: (params: { toolCallId: string; tool: string; output: unknown }) => Promise<void>,
     sendMessage: () => void
   ) => Promise<void>
-  /** Check if there's a pending askUser awaiting response */
+  /** Check if there's a pending askUser awaiting response (memoized) */
   hasPendingAskUser: (messages: MessageWithParts[]) => boolean
+  /** Check if there's a pending askUser - always uses fresh data (for submit handlers) */
+  checkPendingAskUser: (messages: MessageWithParts[]) => boolean
   /** Get submitted response for a tool call */
   getSubmittedResponse: (toolCallId: string) => SubmittedResponse | undefined
 }
@@ -48,6 +50,7 @@ export interface MessageWithParts {
     type: string
     state?: string
     toolCallId?: string
+    toolName?: string // For tool-invocation format
   }>
 }
 
@@ -60,6 +63,10 @@ export function useAskUser(): UseAskUserReturn {
     Record<string, SubmittedResponse>
   >({})
   const [submittingToolId, setSubmittingToolId] = useState<string | null>(null)
+
+  // Ref to always have latest submittedResponses (avoids stale closures)
+  const submittedResponsesRef = useRef<Record<string, SubmittedResponse>>({})
+  submittedResponsesRef.current = submittedResponses
 
   /**
    * Handle submission of an askUser response
@@ -98,24 +105,41 @@ export function useAskUser(): UseAskUserReturn {
 
   /**
    * Check if any message has a pending askUser tool awaiting response
+   * Handles both formats:
+   * - Stream format: type='tool-askUser'
+   * - DB format: type='tool-invocation', toolName='askUser'
    */
   const hasPendingAskUser = useCallback(
     (messages: MessageWithParts[]): boolean => {
-      return messages.some((m) =>
+      const result = messages.some((m) =>
         m.parts?.some((part) => {
-          if (part.type.startsWith('tool-')) {
-            const toolName = part.type.replace('tool-', '')
-            const toolCallId = part.toolCallId
-            return (
-              toolName === 'askUser' &&
-              part.state === 'input-available' &&
-              toolCallId &&
-              !submittedResponses[toolCallId]
-            )
+          // Get tool name from either format
+          let toolName: string | undefined
+          if (part.type === 'tool-invocation' || part.type === 'tool-result') {
+            // DB format: toolName is a separate field
+            toolName = part.toolName
+          } else if (part.type.startsWith('tool-')) {
+            // Stream format: tool name is in the type
+            toolName = part.type.replace('tool-', '')
           }
-          return false
+
+          const toolCallId = part.toolCallId
+          // Check for pending askUser - it's pending if:
+          // - It's an askUser tool call
+          // - State is NOT 'result' (hasn't been completed)
+          // - We haven't already submitted a response for this toolCallId
+          const isCompleted = part.state === 'result'
+
+          return (
+            toolName === 'askUser' &&
+            !isCompleted &&
+            toolCallId &&
+            !submittedResponses[toolCallId]
+          )
         })
       )
+
+      return result
     },
     [submittedResponses]
   )
@@ -130,11 +154,46 @@ export function useAskUser(): UseAskUserReturn {
     [submittedResponses]
   )
 
+  /**
+   * Check for pending askUser using ref (always fresh data).
+   * Use this in submit handlers to avoid stale closure issues.
+   */
+  const checkPendingAskUser = useCallback(
+    (messages: MessageWithParts[]): boolean => {
+      const currentSubmitted = submittedResponsesRef.current
+      const result = messages.some((m) =>
+        m.parts?.some((part) => {
+          // Get tool name from either format
+          let toolName: string | undefined
+          if (part.type === 'tool-invocation' || part.type === 'tool-result') {
+            toolName = part.toolName
+          } else if (part.type.startsWith('tool-')) {
+            toolName = part.type.replace('tool-', '')
+          }
+
+          const toolCallId = part.toolCallId
+          const isCompleted = part.state === 'result'
+
+          return (
+            toolName === 'askUser' &&
+            !isCompleted &&
+            toolCallId &&
+            !currentSubmitted[toolCallId]
+          )
+        })
+      )
+
+      return result
+    },
+    [] // No dependencies - uses ref for fresh data
+  )
+
   return {
     submittedResponses,
     submittingToolId,
     handleAskUserSubmit,
     hasPendingAskUser,
+    checkPendingAskUser,
     getSubmittedResponse,
   }
 }

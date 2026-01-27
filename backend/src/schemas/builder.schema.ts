@@ -9,11 +9,29 @@ export const createBuilderSessionSchema = z.object({
 })
 
 /**
- * Schema for builder chat message
+ * Schema for tool result in builder chat
  */
-export const builderChatMessageSchema = z.object({
-  content: z.string().min(1, 'Message is required').max(5000, 'Message too long'),
+export const toolResultSchema = z.object({
+  toolCallId: z.string(),
+  toolName: z.string(),
+  result: z.unknown(),
 })
+
+/**
+ * Schema for builder chat request
+ * Frontend sends only the new user message, backend fetches history from DB
+ * When continuing after a tool call (e.g., askUser), toolResults should be provided
+ */
+export const builderChatRequestSchema = z.object({
+  // Message is optional when providing tool results (continuation after tool call)
+  message: z.string().max(5000, 'Message too long').optional(),
+  agentId: z.string().uuid('Invalid agent ID').nullish(),
+  // Tool results for continuing after askUser or other human-in-the-loop tools
+  toolResults: z.array(toolResultSchema).optional(),
+}).refine(
+  (data) => data.message?.trim() || (data.toolResults && data.toolResults.length > 0),
+  { message: 'Either message or toolResults is required' }
+)
 
 /**
  * Schema for builder tool: createOrUpdateAgent
@@ -101,7 +119,8 @@ export const builderDeleteToolSchema = z.object({
  * Type exports
  */
 export type CreateBuilderSessionInput = z.infer<typeof createBuilderSessionSchema>
-export type BuilderChatMessage = z.infer<typeof builderChatMessageSchema>
+export type BuilderChatRequest = z.infer<typeof builderChatRequestSchema>
+export type ToolResult = z.infer<typeof toolResultSchema>
 export type BuilderCreateOrUpdateAgentInput = z.infer<typeof builderCreateOrUpdateAgentSchema>
 export type BuilderCreateToolInput = z.infer<typeof builderCreateToolSchema>
 export type BuilderUpdateToolInput = z.infer<typeof builderUpdateToolSchema>

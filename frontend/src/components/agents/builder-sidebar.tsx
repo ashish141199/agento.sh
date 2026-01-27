@@ -70,6 +70,8 @@ function BuilderChatInner({
   const inputRef = useRef<HTMLInputElement>(null)
   const hasPolledRef = useRef(false)
   const [currentAgentId] = useState<string | null>(agentId)
+  // Track tool call IDs that have already been sent to the backend
+  const sentToolCallIdsRef = useRef<Set<string>>(new Set())
 
   // Use custom hooks
   const fetchWithAuth = useFetchWithAuth()
@@ -78,13 +80,67 @@ function BuilderChatInner({
     submittingToolId,
     handleAskUserSubmit: baseHandleAskUserSubmit,
     hasPendingAskUser,
+    checkPendingAskUser,
   } = useAskUser()
 
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: `${API_BASE_URL}/builder/chat`,
       fetch: fetchWithAuth,
-      body: { agentId: currentAgentId },
+      // Transform request to only send the new message (backend fetches history from DB)
+      prepareSendMessagesRequest: ({ messages }) => {
+        // Get the last user message (the one being sent)
+        const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+        // Extract text content from the message parts
+        let messageText = ''
+        if (lastUserMessage?.parts) {
+          const textPart = lastUserMessage.parts.find(p => p.type === 'text')
+          if (textPart && 'text' in textPart) {
+            messageText = textPart.text
+          }
+        }
+
+        // Collect tool results that haven't been sent to the backend yet
+        // Use sentToolCallIdsRef to track which ones have already been sent
+        const toolResults: Array<{ toolCallId: string; toolName: string; result: unknown }> = []
+
+        // Find ALL tool calls with 'output-available' state (answered via addToolOutput)
+        // but only include ones we haven't sent yet
+        for (const msg of messages) {
+          if (msg.role === 'assistant' && msg.parts) {
+            for (const part of msg.parts) {
+              const state = 'state' in part ? part.state : undefined
+              if (part.type.startsWith('tool-') && state === 'output-available' && 'toolCallId' in part) {
+                const toolPart = part as { toolCallId?: string; toolName?: string; result?: unknown; output?: unknown; type: string }
+                const toolCallId = toolPart.toolCallId
+                // Only include if we haven't sent this tool result yet
+                if (toolCallId && !sentToolCallIdsRef.current.has(toolCallId)) {
+                  const toolName = toolPart.toolName || part.type.replace('tool-', '')
+                  toolResults.push({
+                    toolCallId,
+                    toolName,
+                    result: toolPart.result ?? toolPart.output,
+                  })
+                  // Mark as sent
+                  sentToolCallIdsRef.current.add(toolCallId)
+                }
+              }
+            }
+          }
+        }
+
+        // When we have tool results (continuation after askUser), don't resend the original message
+        // The tool results are the continuation, not a new user message
+        const shouldSendMessage = toolResults.length === 0 && messageText
+
+        return {
+          body: {
+            message: shouldSendMessage ? messageText : undefined,
+            agentId: currentAgentId,
+            toolResults: toolResults.length > 0 ? toolResults : undefined,
+          },
+        }
+      },
     })
   }, [currentAgentId, fetchWithAuth])
 
@@ -92,6 +148,10 @@ function BuilderChatInner({
     id: `builder-chat-${currentAgentId || 'new'}`,
     transport,
   })
+
+  // Keep ref to latest chat messages for submit handler (avoids stale closure)
+  const chatMessagesRef = useRef(chatMessages)
+  chatMessagesRef.current = chatMessages
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
@@ -125,11 +185,10 @@ function BuilderChatInner({
     return [...initial, ...chatMessages]
   }, [initialMessages, chatMessages])
 
-  // Check if there's a pending askUser tool awaiting response
-  const pendingAskUser = useMemo(
-    () => hasPendingAskUser(chatMessages),
-    [chatMessages, hasPendingAskUser]
-  )
+  // Check if there's a pending askUser tool awaiting response (check all messages including from DB)
+  const pendingAskUser = useMemo(() => {
+    return hasPendingAskUser(allMessages)
+  }, [allMessages, hasPendingAskUser])
 
   // Poll for agent updates when assistant responds with tool calls
   useEffect(() => {
@@ -181,7 +240,29 @@ function BuilderChatInner({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+
+    // Use ref for latest chatMessages (avoids stale closure)
+    const currentChatMessages = chatMessagesRef.current
+
+    // Compute fresh allMessages for check
+    const freshAllMessages = [
+      ...initialMessages.map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        parts: msg.parts && msg.parts.length > 0
+          ? msg.parts
+          : [{ type: 'text' as const, text: msg.content }],
+      })),
+      ...currentChatMessages,
+    ]
+
+    // Use ref-based check for fresh data
+    const hasPending = checkPendingAskUser(freshAllMessages)
+
+    if (!input.trim() || isLoading || hasPending) {
+      return
+    }
 
     sendMessage({ text: input })
     setInput('')
@@ -231,7 +312,7 @@ function BuilderChatInner({
                 'max-w-[90%] rounded-lg px-3 py-2 text-sm',
                 message.role === 'user'
                   ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 min-w-[280px]'
               )}
             >
               {message.parts && (
